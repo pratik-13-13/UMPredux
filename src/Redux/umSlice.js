@@ -4,7 +4,7 @@ import axios from "axios";
 // Async thunk to fetch users
 export const fetchUsers = createAsyncThunk("users/fetchUsers", async (_, { rejectWithValue }) => {
   try {
-    const response = await axios.get("http://localhost:3000/user");
+    const response = await axios.get("https://server-1-pwpn.onrender.com/user");
     return response.data;
   } catch (error) {
     return rejectWithValue(error.message);
@@ -14,7 +14,7 @@ export const fetchUsers = createAsyncThunk("users/fetchUsers", async (_, { rejec
 // Async thunk to delete user
 export const deleteUser = createAsyncThunk("users/deleteUser", async (id, { rejectWithValue }) => {
   try {
-    await axios.delete(`http://localhost:3000/user/${id}`);
+    await axios.delete(`https://server-1-pwpn.onrender.com/user/${id}`);
     return id; // Returning the deleted user's ID
   } catch (error) {
     return rejectWithValue(error.message);
