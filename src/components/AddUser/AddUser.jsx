@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { addUser, clearError } from "../../Redux/userSlice";
 import { addUserToList } from "../../Redux/umSlice";
+=======
+import React from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { addUser } from "../../Redux/userSlice";
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
 import { useNavigate } from "react-router-dom";
 import { Formik, Form, Field, ErrorMessage } from "formik";
 import * as Yup from "yup";
@@ -10,6 +16,7 @@ const AddUser = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { loading, error } = useSelector((state) => state.user);
+<<<<<<< HEAD
   const [shouldNavigate, setShouldNavigate] = useState(false);
 
   // Clear any previous errors when component mounts
@@ -25,6 +32,10 @@ const AddUser = () => {
   }, [shouldNavigate, navigate]);
 
   // Validation Schema
+=======
+
+  //  Validation Schema
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
   const validationSchema = Yup.object({
     name: Yup.string()
       .min(3, "Name must be at least 3 characters")
@@ -32,6 +43,7 @@ const AddUser = () => {
     email: Yup.string()
       .email("Invalid email format")
       .required("Email is required"),
+<<<<<<< HEAD
     password: Yup.string()
       .min(6, "Password must be at least 6 characters")
       .required("Password is required"),
@@ -92,22 +104,56 @@ const AddUser = () => {
         onSubmit={handleSubmit}
       >
         {({ isSubmitting, errors, touched }) => (
+=======
+  });
+
+  return (
+    <div className="max-w-md mx-auto p-4 bg-white shadow-lg rounded-lg">
+      <h2 className="text-xl font-bold mb-4">Add User</h2>
+      {loading && <p>Loading...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+
+      {/*Formik Form */}
+      <Formik
+        initialValues={{ name: "", email: "" }}
+        validationSchema={validationSchema}
+        onSubmit={(values, { setSubmitting }) => {
+          dispatch(addUser(values))
+            .unwrap()
+            .then(() => {
+              alert("User added successfully!");
+              navigate("/");
+            })
+            .catch((err) => alert(err.message))
+            .finally(() => setSubmitting(false));
+        }}
+      >
+        {({ isSubmitting }) => (
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
           <Form className="space-y-4">
             <div>
               <Field
                 type="text"
                 name="name"
                 placeholder="Enter Name"
+<<<<<<< HEAD
                 className={`w-full p-2 border rounded ${
                   errors.name && touched.name 
                     ? 'border-red-500 bg-red-50' 
                     : 'border-gray-300'
                 }`}
+=======
+                className="w-full p-2 border border-gray-300 rounded"
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
               />
               <ErrorMessage
                 name="name"
                 component="div"
+<<<<<<< HEAD
                 className="text-red-500 text-sm mt-1"
+=======
+                className="text-red-500 text-sm"
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
               />
             </div>
 
@@ -116,15 +162,20 @@ const AddUser = () => {
                 type="email"
                 name="email"
                 placeholder="Enter Email"
+<<<<<<< HEAD
                 className={`w-full p-2 border rounded ${
                   errors.email && touched.email 
                     ? 'border-red-500 bg-red-50' 
                     : 'border-gray-300'
                 }`}
+=======
+                className="w-full p-2 border border-gray-300 rounded"
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
               />
               <ErrorMessage
                 name="email"
                 component="div"
+<<<<<<< HEAD
                 className="text-red-500 text-sm mt-1"
               />
             </div>
@@ -165,6 +216,19 @@ const AddUser = () => {
                 Cancel
               </button>
             </div>
+=======
+                className="text-red-500 text-sm"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-green-500 text-white p-2 rounded disabled:opacity-50"
+            >
+              {isSubmitting ? "Adding..." : "Add User"}
+            </button>
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
           </Form>
         )}
       </Formik>
@@ -172,4 +236,8 @@ const AddUser = () => {
   );
 };
 
+<<<<<<< HEAD
 export default AddUser;
+=======
+export default AddUser;
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418

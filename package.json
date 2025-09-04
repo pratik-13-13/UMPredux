@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+<<<<<<< HEAD
+=======
+      "start": "json-server --watch db.json --port 4000",
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -16,7 +20,10 @@
     "formik": "^2.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+<<<<<<< HEAD
     "react-icons": "^5.5.0",
+=======
+>>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.3.0",
     "tailwindcss": "^4.0.11",
