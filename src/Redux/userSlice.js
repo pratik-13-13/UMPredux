@@ -1,11 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-<<<<<<< HEAD
 const API_URL = "http://localhost:3000/user"; // Base API URL
-=======
-const API_URL = "https://server-1-pwpn.onrender.com/user"; // Base API URL
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
 
 // ✅ Register User
 export const registerUser = createAsyncThunk(
@@ -23,11 +19,9 @@ export const registerUser = createAsyncThunk(
       const res = await axios.post(API_URL, newUser);
       return res.data;
     } catch (error) {
-<<<<<<< HEAD
-      return rejectWithValue(error.response?.data?.message || error.message || "Registration failed!");
-=======
-      return rejectWithValue(error.response?.data || "Registration failed!");
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Registration failed!"
+      );
     }
   }
 );
@@ -40,11 +34,9 @@ export const fetchUserById = createAsyncThunk(
       const response = await axios.get(`${API_URL}/${id}`);
       return response.data;
     } catch (error) {
-<<<<<<< HEAD
-      return rejectWithValue(error.response?.data?.message || error.message || "User not found!");
-=======
-      return rejectWithValue(error.response?.data || "User not found!");
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "User not found!"
+      );
     }
   }
 );
@@ -57,8 +49,9 @@ export const updateUser = createAsyncThunk(
       const response = await axios.put(`${API_URL}/${id}`, updatedData);
       return response.data;
     } catch (error) {
-<<<<<<< HEAD
-      return rejectWithValue(error.response?.data?.message || error.message || "Update failed!");
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Update failed!"
+      );
     }
   }
 );
@@ -69,12 +62,11 @@ export const deleteUser = createAsyncThunk(
   async (id, { rejectWithValue }) => {
     try {
       await axios.delete(`${API_URL}/${id}`);
-      return id; // Return the deleted user's ID
+      return id; // return deleted user ID
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message || "Delete failed!");
-=======
-      return rejectWithValue(error.response?.data || "Update failed!");
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Delete failed!"
+      );
     }
   }
 );
@@ -85,52 +77,47 @@ export const loginUser = createAsyncThunk(
   async ({ email, password }, { rejectWithValue }) => {
     try {
       const response = await axios.get(API_URL);
-      const user = response.data.find((u) => u.email === email && u.password === password);
+      const user = response.data.find(
+        (u) => u.email === email && u.password === password
+      );
 
       if (!user) {
         return rejectWithValue("Invalid email or password!");
       }
 
-      const fakeToken = "fake-jwt-token"; // Simulating authentication
+      const fakeToken = "fake-jwt-token"; // Simulated token
       return { user, token: fakeToken };
     } catch (error) {
-<<<<<<< HEAD
       return rejectWithValue(error.message || "Login failed! Please try again.");
-=======
-      return rejectWithValue("Login failed! Please try again.");
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
     }
   }
 );
 
-<<<<<<< HEAD
-// ✅ Add User (Made password optional for admin adding users)
-=======
-// ✅ Add User
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+// ✅ Add User (password optional for admin-created users)
 export const addUser = createAsyncThunk(
   "user/addUser",
   async (userData, { rejectWithValue }) => {
     try {
-<<<<<<< HEAD
-      // Check if user already exists
       const existingUsersResponse = await axios.get(API_URL);
-      const existingUser = existingUsersResponse.data.find((u) => u.email === userData.email);
-      
+      const existingUser = existingUsersResponse.data.find(
+        (u) => u.email === userData.email
+      );
+
       if (existingUser) {
         return rejectWithValue("User already exists with this email!");
       }
 
-      // Add default password if not provided
       const userToAdd = {
         ...userData,
-        password: userData.password || "defaultPassword123"
+        password: userData.password || "defaultPassword123",
       };
 
       const response = await axios.post(API_URL, userToAdd);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message || "User creation failed!");
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "User creation failed!"
+      );
     }
   }
 );
@@ -143,13 +130,9 @@ export const fetchAllUsers = createAsyncThunk(
       const response = await axios.get(API_URL);
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message || "Failed to fetch users!");
-=======
-      const response = await axios.post(API_URL, userData);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.response?.data || "User creation failed!");
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Failed to fetch users!"
+      );
     }
   }
 );
@@ -171,17 +154,14 @@ const userSlice = createSlice({
       localStorage.removeItem("authToken");
       localStorage.removeItem("userInfo");
     },
-<<<<<<< HEAD
     clearError: (state) => {
       state.error = null;
     },
-=======
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
   },
 
   extraReducers: (builder) => {
     builder
-      // ✅ Login User
+      // ✅ Login
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -198,7 +178,7 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ✅ Register User
+      // ✅ Register
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -212,11 +192,7 @@ const userSlice = createSlice({
         state.error = action.payload;
       })
 
-<<<<<<< HEAD
-      // ✅ Fetch User by ID - Fixed error handling
-=======
-      // ✅ Fetch User by ID (Fix: Store in `userInfo`, not `users`)
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      // ✅ Fetch by ID
       .addCase(fetchUserById.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -227,45 +203,28 @@ const userSlice = createSlice({
       })
       .addCase(fetchUserById.rejected, (state, action) => {
         state.loading = false;
-<<<<<<< HEAD
-        state.error = action.payload; // Fixed: use action.payload instead of action.error.message
+        state.error = action.payload;
       })
 
-      // ✅ Update User
+      // ✅ Update
       .addCase(updateUser.pending, (state) => {
         state.loading = true;
         state.error = null;
-=======
-        state.error = action.error.message;
-      })
-
-      // ✅ Update User (Fix: Update `userInfo`, not `users`)
-      .addCase(updateUser.pending, (state) => {
-        state.loading = true;
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         state.loading = false;
         state.userInfo = action.payload;
-<<<<<<< HEAD
-        // Also update in users array if it exists
-        const userIndex = state.users.findIndex(user => user.id === action.payload.id);
-        if (userIndex !== -1) {
-          state.users[userIndex] = action.payload;
+        const idx = state.users.findIndex((u) => u.id === action.payload.id);
+        if (idx !== -1) {
+          state.users[idx] = action.payload;
         }
-=======
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-<<<<<<< HEAD
-      // ✅ Add User
-=======
-      // ✅ Add User (Fix: Ensure `users` list updates correctly)
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
+      // ✅ Add
       .addCase(addUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -277,24 +236,23 @@ const userSlice = createSlice({
       .addCase(addUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-<<<<<<< HEAD
       })
 
-      // ✅ Delete User
+      // ✅ Delete
       .addCase(deleteUser.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.users = state.users.filter(user => user.id !== action.payload);
+        state.users = state.users.filter((u) => u.id !== action.payload);
       })
       .addCase(deleteUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // ✅ Fetch All Users
+      // ✅ Fetch All
       .addCase(fetchAllUsers.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -306,16 +264,9 @@ const userSlice = createSlice({
       .addCase(fetchAllUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-=======
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
       });
   },
 });
 
-<<<<<<< HEAD
 export const { logout, clearError } = userSlice.actions;
 export default userSlice.reducer;
-=======
-export const { logout } = userSlice.actions;
-export default userSlice.reducer;
->>>>>>> 5ccc88ea502ee668f10462c4875600b02c907418
