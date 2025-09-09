@@ -31,6 +31,70 @@ export const createPost = createAsyncThunk(
   }
 );
 
+export const toggleLike = createAsyncThunk(
+  "posts/toggleLike",
+  async (postId, { rejectWithValue, getState }) => {
+    try {
+      const token = getState().user.token;
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const res = await axios.post(`${API_URL}/${postId}/like`, {}, config);
+      return res.data; // updated post
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || error.message);
+    }
+  }
+);
+
+export const addComment = createAsyncThunk(
+  "posts/addComment",
+  async ({ postId, text }, { rejectWithValue, getState }) => {
+    try {
+      const token = getState().user.token;
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const res = await axios.post(`${API_URL}/${postId}/comments`, { text }, config);
+      return res.data; // updated post with new comment
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || error.message);
+    }
+  }
+);
+
+export const deleteComment = createAsyncThunk(
+  "posts/deleteComment",
+  async ({ postId, commentId }, { rejectWithValue, getState }) => {
+    try {
+      const token = getState().user.token;
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const res = await axios.delete(`${API_URL}/${postId}/comments/${commentId}`, config);
+      return res.data; // updated post
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || error.message);
+    }
+  }
+);
+
+export const editComment = createAsyncThunk(
+  "posts/editComment",
+  async ({ postId, commentId, text }, { rejectWithValue, getState }) => {
+    try {
+      const token = getState().user.token;
+      const config = token
+        ? { headers: { Authorization: `Bearer ${token}` } }
+        : {};
+      const res = await axios.put(`${API_URL}/${postId}/comments/${commentId}`, { text }, config);
+      return res.data; // updated post
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || error.message);
+    }
+  }
+);
+
 const postSlice = createSlice({
   name: "posts",
   initialState: {
@@ -64,6 +128,26 @@ const postSlice = createSlice({
       .addCase(createPost.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(toggleLike.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const idx = state.items.findIndex((p) => p._id === updated._id);
+        if (idx !== -1) state.items[idx] = updated;
+      })
+      .addCase(addComment.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const idx = state.items.findIndex((p) => p._id === updated._id);
+        if (idx !== -1) state.items[idx] = updated;
+      })
+      .addCase(deleteComment.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const idx = state.items.findIndex((p) => p._id === updated._id);
+        if (idx !== -1) state.items[idx] = updated;
+      })
+      .addCase(editComment.fulfilled, (state, action) => {
+        const updated = action.payload;
+        const idx = state.items.findIndex((p) => p._id === updated._id);
+        if (idx !== -1) state.items[idx] = updated;
       });
   },
 });

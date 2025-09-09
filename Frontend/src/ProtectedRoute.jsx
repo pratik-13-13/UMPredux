@@ -6,7 +6,23 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   const storedUserInfo = localStorage.getItem("userInfo");
   const role = storedUserInfo ? JSON.parse(storedUserInfo)?.role : null;
 
-  if (!token) {
+  const isTokenExpired = (jwtToken) => {
+    if (!jwtToken) return true;
+    try {
+      const base64Url = jwtToken.split(".")[1];
+      if (!base64Url) return true;
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const payload = JSON.parse(atob(base64));
+      if (!payload?.exp) return false;
+      return payload.exp * 1000 <= Date.now();
+    } catch (e) {
+      return true;
+    }
+  };
+
+  if (!token || isTokenExpired(token)) {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userInfo");
     return <Navigate to="/login" replace />;
   }
 
