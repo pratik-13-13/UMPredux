@@ -22,7 +22,7 @@ mongoose.connect(
 // Routes
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
-const postRoutes = require('./routes/Post');
+const postRoutes = require('./routes/postRoutes');
 app.use('/api/posts', postRoutes);
 
 // Start server

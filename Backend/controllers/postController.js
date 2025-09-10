@@ -1,26 +1,82 @@
+const { cloudinary } = require('../middlewares/upload.js');
 const { Post } = require('../models/Post.js');
 const { User } = require('../models/User.js');
 
 // Create a new post
 const createPost = async (req, res) => {
   try {
-    const { content, image } = req.body;
+    const { content } = req.body;
+
     if (!content || !content.trim()) {
       return res.status(400).json({ error: 'Content is required' });
+    }
+
+    let imageUrl = null;
+
+    // If image was uploaded via multer
+    if (req.file) {
+      if (req.file.path) {
+        // Cloudinary URL
+        imageUrl = req.file.path;
+      } else {
+        // Memory storage - for now just indicate file was received
+        imageUrl = `File uploaded: ${req.file.originalname}`;
+        console.log('File received but no cloud storage configured');
+      }
+    }
+    // If image URL was provided directly
+    else if (req.body.image) {
+      imageUrl = req.body.image;
     }
 
     const post = await Post.create({
       userId: req.user._id,
       content: content.trim(),
-      image: image || null,
+      image: imageUrl,
     });
 
     const populated = await post.populate({ path: 'userId', select: 'name email' });
     return res.status(201).json(populated);
   } catch (error) {
+    console.error('Create post error:', error);
+    return res.status(500).json({ error: 'Server error: ' + error.message }); // Show actual error
+  }
+};
+
+
+// Delete post 
+const deletePost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await Post.findById(postId);
+    
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Check if user owns the post or is admin
+    if (post.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Not authorized to delete this post' });
+    }
+
+    // Delete image from Cloudinary if it exists
+    if (post.image && post.image.includes('cloudinary.com')) {
+      try {
+        const publicId = post.image.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`posts/${publicId}`);
+      } catch (err) {
+        console.error('Error deleting image from Cloudinary:', err);
+      }
+    }
+
+    await Post.findByIdAndDelete(postId);
+    return res.json({ message: 'Post deleted successfully' });
+  } catch (error) {
+    console.error('Delete post error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 // Get all posts, newest first
 const getAllPosts = async (_req, res) => {
@@ -78,7 +134,7 @@ const addComment = async (req, res) => {
   }
 };
 
-// Delete a comment
+
 // Delete a comment
 const deleteComment = async (req, res) => {
   try {
@@ -172,6 +228,7 @@ const editComment = async (req, res) => {
 
 module.exports = {
   createPost,
+  deletePost,
   getAllPosts,
   toggleLike,
   addComment,

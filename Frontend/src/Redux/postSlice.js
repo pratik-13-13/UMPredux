@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
 const API_URL = "https://api-umpredux.onrender.com/api/posts";
+// const API_URL = "http://localhost:5000/api/posts";
 
 export const fetchPosts = createAsyncThunk(
   "posts/fetchPosts",
@@ -16,20 +17,64 @@ export const fetchPosts = createAsyncThunk(
 );
 
 export const createPost = createAsyncThunk(
-  "posts/createPost",
+  'posts/create',
   async ({ content, image }, { rejectWithValue, getState }) => {
     try {
       const token = getState().user.token;
-      const config = token
-        ? { headers: { Authorization: `Bearer ${token}` } }
-        : {};
-      const res = await axios.post(API_URL, { content, image }, config);
-      return res.data;
+      
+      if (!token) {
+        throw new Error('Please login to create posts');
+      }
+
+      // If image is a File, use FormData
+      if (image instanceof File) {
+        const formData = new FormData();
+        formData.append('content', content);
+        formData.append('image', image);
+
+        const response = await fetch(`${API_URL}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            // Don't set Content-Type for FormData
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create post');
+        }
+
+        return await response.json();
+      } 
+      // If image is URL or no image, use JSON
+      else {
+        const response = await fetch(`${API_URL}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            content,
+            image: typeof image === 'string' && image.trim() ? image : null
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to create post');
+        }
+
+        return await response.json();
+      }
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || error.message);
+      return rejectWithValue(error.message);
     }
   }
 );
+
 
 export const toggleLike = createAsyncThunk(
   "posts/toggleLike",
@@ -101,10 +146,12 @@ const postSlice = createSlice({
     items: [],
     loading: false,
     error: null,
+    creating: false //this for create loading state
   },
   reducers: {},
   extraReducers: (builder) => {
     builder
+    //fetch post
       .addCase(fetchPosts.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -117,18 +164,22 @@ const postSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
+       // Create post
       .addCase(createPost.pending, (state) => {
-        state.loading = true;
+        state.creating = true;
         state.error = null;
       })
       .addCase(createPost.fulfilled, (state, action) => {
-        state.loading = false;
-        state.items = [action.payload, ...state.items];
+        state.creating = false;
+        state.items.unshift(action.payload); // Add new post to beginning
       })
       .addCase(createPost.rejected, (state, action) => {
-        state.loading = false;
+        state.creating = false;
         state.error = action.payload;
       })
+
+      //toggle like
       .addCase(toggleLike.fulfilled, (state, action) => {
         const updated = action.payload;
         const idx = state.items.findIndex((p) => p._id === updated._id);
