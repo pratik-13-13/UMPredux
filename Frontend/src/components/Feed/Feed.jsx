@@ -42,7 +42,7 @@ const Feed = () => {
   //   t3 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: -90 })), 1100);
   //   t4 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: 0 })), 1600);
   //   return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  // }, [openPost]);
+  // }, [openPost]);     
 
   return (
     <div className="min-h-screen bg-gray-400 pb-20 py-8 px-4">

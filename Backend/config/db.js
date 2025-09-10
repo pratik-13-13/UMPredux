@@ -9,5 +9,9 @@ const connectDB = async () => {
     process.exit(1); // Stop app if DB fails
   }
 };
+require("dotenv").config();
+const connectDB = require("./db");
+connectDB();
+
 
 export default connectDB;
