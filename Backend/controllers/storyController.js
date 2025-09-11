@@ -97,6 +97,7 @@ const getStoriesByUser = async (req, res) => {
 
 
 // View a story (add current user to viewers)
+
 const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
@@ -106,17 +107,47 @@ const viewStory = async (req, res) => {
       return res.status(404).json({ error: 'Story not found' });
     }
     
-    // Add user to viewers if not already viewed
-    if (!story.viewers.includes(req.user._id)) {
-      story.viewers.push(req.user._id);
+    const userId = req.user._id;
+    
+    // Add user to viewers if not already viewed (avoid duplicates)
+    if (!story.viewers.some(viewerId => viewerId.toString() === userId.toString())) {
+      story.viewers.push(userId);
       await story.save();
     }
     
+    // Return story with populated viewers
     const populated = await Story.findById(storyId)
       .populate({ path: 'userId', select: 'name email' })
       .populate({ path: 'viewers', select: 'name email' });
       
     return res.json(populated);
+  } catch (error) {
+    console.error('View story error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get story viewers (for the story owner)
+const getStoryViewers = async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const story = await Story.findById(storyId)
+      .populate({ path: 'viewers', select: 'name email' });
+    
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+    
+    // Only story owner can see viewers
+    if (story.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+    
+    return res.json({
+      storyId: story._id,
+      viewerCount: story.viewers.length,
+      viewers: story.viewers
+    });
   } catch (error) {
     return res.status(500).json({ error: 'Server error' });
   }
@@ -149,5 +180,6 @@ module.exports = {
   getActiveStories,
   getStoriesByUser,
   viewStory,
-  deleteStory
+  deleteStory,
+  getStoryViewers 
 };

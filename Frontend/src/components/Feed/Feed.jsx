@@ -29,6 +29,7 @@ const Feed = () => {
   const [editing, setEditing] = useState(null);
   const [deletedComments, setDeletedComments] = useState({});
   const [toast, setToast] = useState(null);
+const [allStoriesData, setAllStoriesData] = useState(null);
 
   const openPost = useMemo(() => posts.find(p => p._id === openCommentsPostId), [posts, openCommentsPostId]);
 
@@ -50,11 +51,23 @@ const Feed = () => {
     setTimeout(() => setToast(null), 4000);
   };
 
-  useEffect(() => {
-    dispatch(fetchPosts());
-    dispatch(fetchStoriesByUser());
+useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        const [postsResponse, storiesResponse] = await Promise.all([
+          dispatch(fetchPosts()),
+          dispatch(fetchStoriesByUser())
+        ]);
+        setAllStoriesData(storiesResponse.payload); // Cache stories data
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+    fetchAllData();
   }, [dispatch]);
 
+
+  
   const formatTimeAgo = (dateString) => {
     const now = new Date();
     const postDate = new Date(dateString);
@@ -97,14 +110,17 @@ const Feed = () => {
     if (!userId) return;
     
     if (userId === userInfo?._id) {
-      // If it's current user's story or "Add Your Story", navigate to create
-      if (!currentUserStories || currentUserStories.stories.length === 0) {
+      if (!currentUserStories || currentUserStories.stories?.length === 0) {
         navigate('/create-story');
       } else {
-        navigate(`/story/${userId}`);
+        navigate(`/story/${userId}`, { 
+          state: { storiesData: allStoriesData } // Pass cached data
+        });
       }
     } else {
-      navigate(`/story/${userId}`);
+      navigate(`/story/${userId}`, { 
+        state: { storiesData: allStoriesData } // Pass cached data
+      });
     }
   };
 

@@ -1,45 +1,49 @@
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { viewStory, setViewingStory } from "../../Redux/storySlice.js";
-import { useNavigate, useParams } from "react-router-dom";
-import { IoClose, IoChevronBack, IoChevronForward } from "react-icons/io5";
+import { viewStory } from "../../Redux/storySlice.js";
+import { 
+  IoClose, 
+  IoChevronBack, 
+  IoChevronForward, 
+  IoEye 
+} from "react-icons/io5";
 
 const StoryViewer = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { userId } = useParams();
   
-  const { userStories } = useSelector((state) => state.stories);
+  // Get cached stories data from navigation state
+  const storiesData = location.state?.storiesData || [];
   const { userInfo } = useSelector((state) => state.user);
   
   const [currentUserIndex, setCurrentUserIndex] = useState(0);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
 
-  // Find user stories
-  const currentUserStories = userStories[currentUserIndex];
-  const currentStory = currentUserStories?.stories[currentStoryIndex];
-
+  // Find initial user and story indices
   useEffect(() => {
-    // Find the user index based on userId param
-    if (userId) {
-      const userIndex = userStories.findIndex(group => group._id._id === userId);
+    if (userId && storiesData.length > 0) {
+      const userIndex = storiesData.findIndex(
+        group => group._id._id === userId
+      );
       if (userIndex !== -1) {
         setCurrentUserIndex(userIndex);
+        setCurrentStoryIndex(0);
       }
     }
-  }, [userId, userStories]);
+  }, [userId, storiesData]);
 
-  useEffect(() => {
-    if (currentStory) {
-      dispatch(viewStory(currentStory._id));
-    }
-  }, [currentStory, dispatch]);
+  const currentUserStories = storiesData[currentUserIndex];
+  const currentStory = currentUserStories?.stories[currentStoryIndex];
 
-  // Auto-progress story
+  // Auto-progress story (5 seconds per story)
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || !currentStory) return;
 
     const timer = setInterval(() => {
       setProgress(prev => {
@@ -47,12 +51,19 @@ const StoryViewer = () => {
           nextStory();
           return 0;
         }
-        return prev + 1;
+        return prev + 2; // 2% every 100ms = 5 seconds total
       });
-    }, 50); // 5 seconds total (100 * 50ms)
+    }, 100);
 
     return () => clearInterval(timer);
-  }, [currentStoryIndex, currentUserIndex, isPaused]);
+  }, [currentStoryIndex, currentUserIndex, isPaused, currentStory]);
+
+  // Track story view when story changes
+  useEffect(() => {
+    if (currentStory && userInfo) {
+      dispatch(viewStory(currentStory._id));
+    }
+  }, [currentStory, dispatch, userInfo]);
 
   const nextStory = () => {
     if (currentStoryIndex < currentUserStories.stories.length - 1) {
@@ -73,7 +84,7 @@ const StoryViewer = () => {
   };
 
   const nextUser = () => {
-    if (currentUserIndex < userStories.length - 1) {
+    if (currentUserIndex < storiesData.length - 1) {
       setCurrentUserIndex(prev => prev + 1);
       setCurrentStoryIndex(0);
       setProgress(0);
@@ -90,13 +101,12 @@ const StoryViewer = () => {
     }
   };
 
-  // Generate user avatar
   const generateAvatar = (user) => {
     if (!user) return { initials: 'U', color: 'from-gray-400 to-gray-500' };
     const initials = user.name ? user.name.substring(0, 2).toUpperCase() : 'U';
     const colors = [
       'from-blue-400 to-blue-600',
-      'from-purple-400 to-purple-600', 
+      'from-purple-400 to-purple-600',
       'from-pink-400 to-pink-600',
       'from-green-400 to-green-600'
     ];
@@ -104,20 +114,21 @@ const StoryViewer = () => {
     return { initials, color: colors[colorIndex] };
   };
 
-  if (!currentStory) {
+  if (!currentStory || !currentUserStories) {
     return (
       <div className="h-screen bg-black flex items-center justify-center">
-        <div className="text-white">Loading story...</div>
+        <div className="text-white">Loading stories...</div>
       </div>
     );
   }
 
-  const userAvatar = generateAvatar(currentStory.userId);
+  const userAvatar = generateAvatar(currentUserStories._id);
+  const viewerCount = currentStory.viewers?.length || 0;
 
   return (
     <div className="h-screen bg-black relative">
       {/* Progress Bars */}
-      <div className="absolute top-0 left-0 right-0 z-10 flex space-x-1 p-2">
+      <div className="absolute top-0 left-0 right-0 z-20 flex space-x-1 p-2">
         {currentUserStories.stories.map((_, index) => (
           <div
             key={index}
@@ -140,7 +151,7 @@ const StoryViewer = () => {
       </div>
 
       {/* Header */}
-      <div className="absolute top-4 left-0 right-0 z-10 mt-6">
+      <div className="absolute top-4 left-0 right-0 z-20 mt-6">
         <div className="flex items-center justify-between px-4">
           <div className="flex items-center space-x-3">
             <div className={`w-8 h-8 bg-gradient-to-r ${userAvatar.color} rounded-full flex items-center justify-center`}>
@@ -150,7 +161,7 @@ const StoryViewer = () => {
             </div>
             <div>
               <span className="text-white font-semibold text-sm">
-                {currentStory.userId.name}
+                {currentUserStories._id.name}
               </span>
               <div className="text-white/70 text-xs">
                 {new Date(currentStory.createdAt).toLocaleString()}
@@ -168,7 +179,7 @@ const StoryViewer = () => {
 
       {/* Story Content */}
       <div
-        className="h-full relative"
+        className="h-full relative cursor-pointer"
         onTouchStart={() => setIsPaused(true)}
         onTouchEnd={() => setIsPaused(false)}
         onMouseDown={() => setIsPaused(true)}
@@ -182,7 +193,7 @@ const StoryViewer = () => {
         
         {/* Story Text */}
         {currentStory.content && (
-          <div className="absolute bottom-20 left-4 right-4">
+          <div className="absolute bottom-32 left-4 right-4">
             <p className="text-white text-lg shadow-lg">
               {currentStory.content}
             </p>
@@ -207,12 +218,32 @@ const StoryViewer = () => {
         </div>
       </div>
 
-      {/* Story Info */}
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="text-white/70 text-sm">
-          Viewed by {currentStory.viewers?.length || 0} people
+      {/* Bottom Info - Show Viewers (Instagram Style) */}
+      {currentUserStories._id._id === userInfo?._id && (
+        <div className="absolute bottom-4 left-4 right-4">
+          <button
+            onClick={() => setShowViewers(!showViewers)}
+            className="flex items-center space-x-2 text-white/80 text-sm"
+          >
+            <IoEye size={16} />
+            <span>Seen by {viewerCount}</span>
+          </button>
+          
+          {showViewers && viewerCount > 0 && (
+            <div className="mt-2 bg-black/80 backdrop-blur-md rounded-lg p-3 max-h-32 overflow-y-auto">
+              <div className="text-white text-xs mb-2">Viewed by:</div>
+              {currentStory.viewers?.map((viewer) => (
+                <div key={viewer._id} className="flex items-center space-x-2 text-white text-sm py-1">
+                  <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+                    <span className="text-xs">{viewer.name?.[0]?.toUpperCase()}</span>
+                  </div>
+                  <span>{viewer.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 };

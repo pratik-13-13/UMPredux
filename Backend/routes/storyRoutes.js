@@ -7,7 +7,8 @@ const {
   getActiveStories,
   getStoriesByUser,
   viewStory,
-  deleteStory
+  deleteStory,
+  getStoryViewers 
 } = require('../controllers/storyController.js');
 
 // Get all active stories
@@ -15,6 +16,10 @@ router.get('/', getActiveStories);
 
 // Get stories grouped by user
 router.get('/by-user', getStoriesByUser);
+
+// Get story viewers (requires login and ownership)
+router.get('/:storyId/viewers', authenticateToken, getStoryViewers);
+
 
 // Create a story (requires login)
 router.post('/', authenticateToken, upload.single('image'), createStory);
