@@ -1,5 +1,5 @@
 import React from 'react';
-import { createBrowserRouter, RouterProvider,  } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './App.css';
 import Login from './components/Login/Login.jsx';
 import Register from './components/Register/Register.jsx';
@@ -10,9 +10,10 @@ import Profile from './components/Profile/Profile.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import Feed from './components/Feed/Feed.jsx';
 import CreatePost from './components/CreatePost/CreatePost.jsx';
+import CreateStory from './components/CreateStory/CreateStory.jsx';
+import StoryViewer from './components/StoryViewer/StoryViewer.jsx'; 
 
 function App() {
-
   const ramRouter = createBrowserRouter([
     {
       path: "/",
@@ -35,6 +36,22 @@ function App() {
       element: (
         <ProtectedRoute>
           <CreatePost />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/create-story",
+      element: (
+        <ProtectedRoute>
+          <CreateStory />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/story/:userId", 
+      element: (
+        <ProtectedRoute>
+          <StoryViewer />
         </ProtectedRoute>
       ),
     },

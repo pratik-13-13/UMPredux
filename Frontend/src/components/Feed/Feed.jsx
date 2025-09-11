@@ -1,376 +1,586 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-// import { Link } from "react-router-dom";
 import { fetchPosts, toggleLike, addComment, deleteComment, editComment } from "../../Redux/postSlice.js";
+import { fetchStoriesByUser } from "../../Redux/storySlice.js"; // Add story import
+import { useNavigate } from "react-router-dom"; // Add navigation
 import BottomNav from "../BottomNav/BottomNav.jsx";
-import { GoCommentDiscussion } from "react-icons/go";
-import { IoHeartCircleSharp, IoArrowUpCircle, IoTrashSharp, IoPencilSharp } from "react-icons/io5";
-
-const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+import { 
+  IoHeartOutline, 
+  IoHeart, 
+  IoChatbubbleOutline, 
+  IoPaperPlaneOutline,
+  IoBookmarkOutline,
+  IoEllipsisHorizontal,
+  IoClose,
+  IoArrowBack,
+  IoSend,
+  IoAddOutline // Add plus icon
+} from "react-icons/io5";
 
 const Feed = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // Add navigation
   const { items: posts, loading } = useSelector((state) => state.posts);
-  const userInfo = JSON.parse(localStorage.getItem("userInfo"));
+  const { userInfo, token } = useSelector((state) => state.user);
+  const { userStories, loading: storiesLoading } = useSelector((state) => state.stories); // Add stories state
   const [openCommentsPostId, setOpenCommentsPostId] = useState(null);
   const [modalText, setModalText] = useState("");
-  const [swipeState, setSwipeState] = useState({}); // { [commentKey]: offsetPx }
-  const [editing, setEditing] = useState(null); // { commentId, text }
-  const [deletedComments, setDeletedComments] = useState({}); // optimistic hidden ids
-  const [toast, setToast] = useState(null); // { message, type }
+  const [swipeState, setSwipeState] = useState({});
+  const [editing, setEditing] = useState(null);
+  const [deletedComments, setDeletedComments] = useState({});
+  const [toast, setToast] = useState(null);
 
   const openPost = useMemo(() => posts.find(p => p._id === openCommentsPostId), [posts, openCommentsPostId]);
 
-  // Toast function
+  // Check if current user has stories
+  const currentUserStories = useMemo(() => {
+    return userStories.find(group => group._id._id === userInfo?._id);
+  }, [userStories, userInfo]);
+
+  // Get other users with stories (excluding current user)
+  const otherUsersWithStories = useMemo(() => {
+    return userStories.filter(group => group._id._id !== userInfo?._id);
+  }, [userStories, userInfo]);
+
   const showToast = (message, type = 'error') => {
     setToast({ message, type });
-    setTimeout(() => setToast(null), 4000); // Auto dismiss after 4 seconds
+    setTimeout(() => setToast(null), 4000);
   };
 
   useEffect(() => {
     dispatch(fetchPosts());
+    dispatch(fetchStoriesByUser()); // Fetch stories on mount
   }, [dispatch]);
 
-  // Demo: briefly showcase swipe gestures on first comment when modal opens
-  // useEffect(() => {
-  //   if (!openPost || !openPost.comments || openPost.comments.length === 0) return;
-  //   const key = openPost.comments[0]._id || openPost.comments[0].createdAt;
-  //   let t1, t2, t3, t4;
-  //   setSwipeState((s) => ({ ...s, [key]: 0 }));
-  //   t1 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: 90 })), 200);
-  //   t2 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: 0 })), 700);
-  //   t3 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: -90 })), 1100);
-  //   t4 = setTimeout(() => setSwipeState((s) => ({ ...s, [key]: 0 })), 1600);
-  //   return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  // }, [openPost]);     
+  const formatTimeAgo = (dateString) => {
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor((now - postDate) / 1000);
+    
+    if (diffInSeconds < 60) return `${diffInSeconds}s`;
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d`;
+    return `${Math.floor(diffInSeconds / 604800)}w`;
+  };
+
+  // Generate avatar with initials and consistent colors
+  const generateAvatar = (user) => {
+    if (!user) return { initials: 'U', color: 'from-gray-400 to-gray-500' };
+    
+    const initials = user.name ? user.name.substring(0, 2).toUpperCase() : 'U';
+    
+    const colors = [
+      'from-blue-400 to-blue-600',
+      'from-purple-400 to-purple-600', 
+      'from-pink-400 to-pink-600',
+      'from-green-400 to-green-600',
+      'from-yellow-400 to-yellow-600',
+      'from-red-400 to-red-600',
+      'from-indigo-400 to-indigo-600',
+      'from-teal-400 to-teal-600'
+    ];
+    
+    const colorIndex = user._id ? user._id.charCodeAt(user._id.length - 1) % colors.length : 0;
+    
+    return {
+      initials,
+      color: colors[colorIndex]
+    };
+  };
+
+  // Handle story navigation
+  const handleStoryClick = (userId) => {
+    if (userId === userInfo?._id) {
+      // If it's current user's story or "Add Your Story", navigate to create
+      if (!currentUserStories || currentUserStories.stories.length === 0) {
+        navigate('/create-story');
+      } else {
+        navigate(`/story/${userId}`);
+      }
+    } else {
+      navigate(`/story/${userId}`);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-400 pb-20 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-
-        {/* Feed List */}
-        <div className="space-y-4">
-          {loading && posts.length === 0 && (
-            <div className="text-center text-gray-500">Loading feed...</div>
-          )}
-          {!loading && posts.length === 0 && (
-            <div className="text-center text-gray-500">No posts yet</div>
-          )}
-          {posts.map((post) => {
-            const isLiked = (post.likes || []).some((id) => id === userInfo?._id);
-            const likeCount = (post.likes || []).length;
-            const commentCount = (post.comments || []).length;
-            return (
-              <div key={post._id} className="bg-white rounded-lg shadow p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="font-semibold text-gray-800">{post.userId?.name || "Unknown"}</div>
-                  <div className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleString()}</div>
-                </div>
-                <div className="text-gray-700 whitespace-pre-wrap">{post.content}</div>
-                {post.image && (
-                  <img src={post.image} alt="post" className="mt-3 rounded max-h-96 object-contain w-full" />
-                )}
-                <div className="mt-3 flex items-center gap-6 text-sm">
-                  <button
-                    className={`flex items-center gap-2 ${isLiked ? 'text-red-600' : 'text-gray-600'}`}
-                    onClick={() => dispatch(toggleLike(post._id))}
-                    aria-label="Like"
-                  >
-                    <IoHeartCircleSharp className="text-2xl" />
-                    <span>{likeCount}</span>
-                  </button>
-                  <button
-                    className="flex items-center gap-2 text-gray-600"
-                    onClick={() => setOpenCommentsPostId(post._id)}
-                    aria-label="Comments"
-                  >
-                    <GoCommentDiscussion className="text-2xl" />
-                    <span>{commentCount}</span>
-                  </button>
-                </div>
-                <form
-                  className="mt-3 flex items-center gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const input = e.currentTarget.elements[`c_${post._id}`];
-                    const text = input.value.trim();
-                    if (!text) return;
-                    dispatch(addComment({ postId: post._id, text }));
-                    input.value = '';
-                  }}
-                >
-                </form>
-                {post.comments && post.comments.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {post.comments.slice(0, 3).map((c) => (
-                      <div key={c._id || c.createdAt} className="text-sm"><span className="font-medium">{c.userId?.name || 'User'}:</span> {c.text}</div>
-                    ))}
-                    {post.comments.length > 3 && (
-                      <div className="text-xs text-gray-500">View all {post.comments.length} comments</div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+    <div className="min-h-screen bg-white">
+      {/* Instagram Header */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent">
+            Instagram
+          </h1>
+          <div className="flex items-center space-x-4">
+            <button>
+              <IoPaperPlaneOutline size={24} className="text-gray-800" />
+            </button>
+          </div>
         </div>
       </div>
-      {openPost && (
-        <div className="fixed inset-0 z-50 flex flex-col h-full">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpenCommentsPostId(null)} />
-          <div className="relative mt-auto bg-white rounded-t-2xl max-h-[85vh] w-full overflow-hidden flex flex-col">
-            <div className="w-14 h-1.5 bg-gray-300 rounded mx-auto mt-3" />
-            <div className="text-center font-medium text-base py-1">Comments</div>
-            <div className="px-4 flex-1 overflow-y-auto">
-              {(!openPost.comments || openPost.comments.length === 0) && (
-                <div className="text-center text-gray-500 py-8">No comments yet</div>
-              )}
-              {openPost.comments && openPost.comments.filter(c => !deletedComments[c._id]).map((c) => {
-                const key = c._id || c.createdAt;
-                const offset = swipeState[key] || 0;
-                return (
-                  <div key={key} className="relative overflow-hidden select-none">
-                    {/* Backgrounds for swipe gestures */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {/* Blue edit bg */}
-                      <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-50 flex items-center pl-4">
-                        <div className="flex items-center gap-2 text-blue-600 transition-transform" style={{ transform: `translateX(${Math.min(0, offset)}px)` }}>
-                          {/* <IoPencilSharp className="text-2xl" /> */}
-                          <span className="text-sm font-medium">Edit</span>
-                        </div>
-                      </div>
-                      {/* Red delete bg */}
-                      <div className="absolute inset-y-0 right-0 w-1/2 bg-red-100 flex items-center justify-end pr-4">
-                        <div className="flex items-center gap-2 text-red-500 transition-transform" style={{ transform: `translateX(${Math.max(0, offset)}px)` }}>
-                          <span className="text-sm font-medium">Delete</span>
-                          {/* <IoTrashSharp className="text-2xl" /> */}
-                        </div>
-                      </div>
-                    </div>
-                    {/* Foreground comment that slides */}
-                    <div
-                      className="py-3 border-b border-gray-100 flex items-start bg-white relative"
-                      style={{ transform: `translateX(${offset}px)`, transition: 'transform 0.15s ease-out' }}
-                      onTouchStart={(e) => {
-                        const startX = e.touches[0].clientX;
-                        const startOffset = swipeState[key] || 0;
-                        let currentDx = 0;
-                        const move = (ev) => {
-                          const dx = ev.touches[0].clientX - startX;
-                          currentDx = dx;
-                          let next = startOffset + dx;
-                          next = Math.max(-140, Math.min(140, next));
-                          setSwipeState((s) => ({ ...s, [key]: next }));
-                        };
-                        const end = () => {
-                          const final = startOffset + currentDx;
-                          if (final >= 90 && c._id) {
-                            // swipe left -> right: delete (optimistic)
-                            setDeletedComments((m) => ({ ...m, [c._id]: true }));
 
-                            dispatch(deleteComment({
-                              postId: openPost._id,
-                              commentId: c._id
-                            }))
-                              .unwrap()
-                              .then(() => {
-                                // Success toast
-                                showToast("Comment deleted", "success");
-                              })
-                              .catch((err) => {
-                                console.error('Delete comment failed:', err);
-                                const errorMessage = err?.message || err || 'Not authorized to delete this comment';
-                                showToast(errorMessage, 'error');
-                                // Revert optimistic update
-                                setDeletedComments((m) => {
-                                  const n = { ...m };
-                                  delete n[c._id];
-                                  return n;
-                                });
-                              });
-
-                          } else if (final <= -90 && c._id) {
-                            // swipe right -> left: edit
-                            setEditing({ commentId: c._id, text: c.text });
-                          }
-                          setSwipeState((s) => ({ ...s, [key]: 0 }));
-                          window.removeEventListener('touchmove', move);
-                          window.removeEventListener('touchend', end);
-                        };
-                        window.addEventListener('touchmove', move, { passive: true });
-                        window.addEventListener('touchend', end);
-                      }}
-                      onMouseDown={(e) => {
-                        const startX = e.clientX;
-                        const startOffset = swipeState[key] || 0;
-                        let currentDx = 0;
-                        const move = (ev) => {
-                          const dx = ev.clientX - startX;
-                          currentDx = dx;
-                          let next = startOffset + dx;
-                          next = Math.max(-140, Math.min(140, next));
-                          setSwipeState((s) => ({ ...s, [key]: next }));
-                        };
-                        const end = () => {
-                          const final = startOffset + currentDx;
-                          if (final >= 90 && c._id) {
-                            setDeletedComments((m) => ({ ...m, [c._id]: true }));
-                            dispatch(deleteComment({
-                              postId: openPost._id,
-                              commentId: c._id
-                            }))
-                              .unwrap()
-                              .then(() => {
-                                // Success toast
-                                showToast("Comment deleted", "success");
-                              })
-                              .catch((err) => {
-                                console.error('Delete comment failed:', err);
-                                const errorMessage = err?.message || err || 'Not authorized to delete this comment';
-                                showToast(errorMessage, 'error');
-                                // Revert optimistic update
-                                setDeletedComments((m) => {
-                                  const n = { ...m };
-                                  delete n[c._id];
-                                  return n;
-                                });
-                              });
-                          } else if (final <= -90 && c._id) {
-                            setEditing({ commentId: c._id, text: c.text });
-                          }
-                          setSwipeState((s) => ({ ...s, [key]: 0 }));
-                          window.removeEventListener('mousemove', move);
-                          window.removeEventListener('mouseup', end);
-                        };
-                        window.addEventListener('mousemove', move);
-                        window.addEventListener('mouseup', end);
-                      }}
-                    >
-                      <div className="w-10 h-10 bg-gray-200 rounded-full mr-3 flex items-center justify-center font-semibold text-gray-600 text-sm flex-shrink-0">
-                        {c.userId?.name ? c.userId.name[0].toUpperCase() : 'U'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-sm">{c.userId?.name || 'User'}</span>
-                          <span className="text-xs text-gray-400">{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                        {editing?.commentId === c._id ? (
-                          <form
-                            className="flex items-center gap-2 mt-1"
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              const t = editing.text.trim();
-                              if (!t) return;
-                              dispatch(editComment({ postId: openPost._id, commentId: c._id, text: t }))
-                                .unwrap()
-                                .then(() => {
-                                  // Success toast for edit
-                                  showToast("Comment updated", "success");
-                                  setEditing(null);
-                                })
-                                .catch((err) => {
-                                  console.error('Edit comment failed:', err);
-                                  const errorMessage = err?.message || err || 'Not authorized to edit this comment';
-                                  showToast(errorMessage, 'error');
-                                });
-                            }}
-                          >
-                            <input
-                              className="flex-1 border rounded px-2 py-1 text-sm"
-                              value={editing.text}
-                              onChange={(e) => setEditing({ ...editing, text: e.target.value })}
-                              autoFocus
-                            />
-                            <button type="button" className="text-xs px-2 py-1" onClick={() => setEditing(null)}>Cancel</button>
-                            <button type="submit" className="text-xs px-2 py-1 text-blue-600">Save</button>
-                          </form>
-                        ) : (
-                          <div className="text-gray-900 text-sm mt-0.5 break-words">{c.text}</div>
+      {/* Stories Section - Dynamic with "Your Story" always first */}
+      {(userInfo || otherUsersWithStories.length > 0) && (
+        <div className="border-b border-gray-200 py-4">
+          <div className="flex space-x-4 px-4 overflow-x-auto scrollbar-hide">
+            
+            {/* Current User's Story - Always shows first */}
+            {userInfo && (
+              <div className="flex flex-col items-center space-y-1 flex-shrink-0">
+                <button
+                  onClick={() => handleStoryClick(userInfo._id)}
+                  className="relative"
+                >
+                  {/* Story Ring - Different styles for has/no stories */}
+                  <div className={`w-16 h-16 rounded-full p-0.5 ${
+                    currentUserStories && currentUserStories.stories.length > 0
+                      ? 'bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500' // Has stories
+                      : 'bg-gray-300' // No stories
+                  }`}>
+                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                      <div className={`w-12 h-12 bg-gradient-to-r ${generateAvatar(userInfo).color} rounded-full flex items-center justify-center relative`}>
+                        <span className="text-white font-semibold text-xs">
+                          {generateAvatar(userInfo).initials}
+                        </span>
+                        
+                        {/* Plus icon for "Add Your Story" */}
+                        {(!currentUserStories || currentUserStories.stories.length === 0) && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
+                            <IoAddOutline size={12} className="text-white" />
+                          </div>
                         )}
-                        <div className="flex items-center gap-4 text-xs mt-1 text-gray-500">
-                          <button className="hover:underline">Reply</button>
-                          <span>See translation</span>
-                        </div>
                       </div>
-                      <button className="text-gray-400 hover:text-red-500 ml-2 flex items-center">
-                        <IoHeartCircleSharp className="text-xl" />
-                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            <div className="px-4 pt-2 pb-1 flex gap-3 justify-between text-xl">
-              {['❤️', '🙌', '🔥', '👏', '😆', '😮', '😢', '🤔'].map(e => (
-                <button key={e}>{e}</button>
-              ))}
-            </div>
-            <form
-              className="border-t flex items-center gap-2 p-3 bg-white"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const text = modalText.trim();
-                if (!text) return;
-                dispatch(addComment({ postId: openPost._id, text }))
-                  .unwrap()
-                  .then(() => {
-                    setModalText("");
-                    showToast("Comment added", "success");
-                  })
-                  .catch((err) => {
-                    console.error('Add comment failed:', err);
-                    showToast("Failed to add comment", "error");
-                  });
-              }}
-            >
-              <button type="button" className="text-xl">😊</button>
-              <input
-                name="modalComment"
-                type="text"
-                placeholder="What do you think of this?"
-                className="flex-1 border rounded px-3 py-2 text-sm"
-                autoComplete="off"
-                value={modalText}
-                onChange={(e) => setModalText(e.target.value)}
-              />
-              {modalText && (
-                <button type="button" className="px-2 py-2 text-sm text-gray-600" onClick={() => setModalText("")}>Cancel</button>
-              )}
-              <button type="submit" aria-label="Send" disabled={!modalText.trim()} className="disabled:opacity-50">
-                <IoArrowUpCircle className={`text-3xl ${modalText.trim() ? 'text-blue-600' : 'text-gray-400'}`} />
-              </button>
-            </form>
+                </button>
+                
+                <span className="text-xs text-gray-600 max-w-[60px] truncate">
+                  {currentUserStories && currentUserStories.stories.length > 0
+                    ? 'Your story'
+                    : 'Add story'
+                  }
+                </span>
+              </div>
+            )}
+
+            {/* Other Users' Stories */}
+            {otherUsersWithStories.map((userGroup) => (
+              <div key={userGroup._id._id} className="flex flex-col items-center space-y-1 flex-shrink-0">
+                <button
+                  onClick={() => handleStoryClick(userGroup._id._id)}
+                  className="relative"
+                >
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500 p-0.5">
+                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
+                      <div className={`w-12 h-12 bg-gradient-to-r ${generateAvatar(userGroup._id).color} rounded-full flex items-center justify-center`}>
+                        <span className="text-white font-semibold text-xs">
+                          {generateAvatar(userGroup._id).initials}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+                <span className="text-xs text-gray-600 max-w-[60px] truncate">
+                  {userGroup._id.name || 'User'}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Toast Notification */}
+      {/* Feed Content */}
+      <div className="pb-20">
+        {loading && posts.length === 0 && (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500"></div>
+          </div>
+        )}
+        
+        {!loading && posts.length === 0 && (
+          <div className="text-center py-20">
+            <div className="text-gray-400 text-lg mb-2">No posts yet</div>
+            <div className="text-gray-500 text-sm">Follow people to see their posts</div>
+          </div>
+        )}
+
+        {posts.map((post) => {
+          const isLiked = (post.likes || []).some((id) => id === userInfo?._id);
+          const likeCount = (post.likes || []).length;
+          const commentCount = (post.comments || []).length;
+          const postUser = post.userId || {};
+          const userAvatar = generateAvatar(postUser);
+          
+          return (
+            <div key={post._id} className="bg-white border-b border-gray-100">
+              {/* Post Header */}
+              <div className="flex items-center justify-between p-3">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-8 h-8 bg-gradient-to-r ${userAvatar.color} rounded-full flex items-center justify-center`}>
+                    <span className="text-white font-semibold text-xs">
+                      {userAvatar.initials}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <span className="font-semibold text-sm text-gray-900">
+                      {postUser.name || "Unknown"}
+                    </span>
+                    <span className="text-gray-400">•</span>
+                    <span className="text-xs text-gray-500">
+                      {formatTimeAgo(post.createdAt)}
+                    </span>
+                  </div>
+                </div>
+                <IoEllipsisHorizontal size={16} className="text-gray-600" />
+              </div>
+
+              {/* Post Image - Only show if image exists */}
+              {post.image && (
+                <div className="w-full aspect-square bg-gray-100">
+                  <img 
+                    src={post.image} 
+                    alt="Post content" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => dispatch(toggleLike(post._id))}
+                      className="transition-transform active:scale-125"
+                      disabled={!token}
+                    >
+                      {isLiked ? (
+                        <IoHeart size={24} className="text-red-500" />
+                      ) : (
+                        <IoHeartOutline size={24} className="text-gray-900" />
+                      )}
+                    </button>
+                    <button onClick={() => setOpenCommentsPostId(post._id)}>
+                      <IoChatbubbleOutline size={24} className="text-gray-900" />
+                    </button>
+                    <button>
+                      <IoPaperPlaneOutline size={24} className="text-gray-900" />
+                    </button>
+                  </div>
+                  <button>
+                    <IoBookmarkOutline size={24} className="text-gray-900" />
+                  </button>
+                </div>
+
+                {/* Like Count - Only show if there are likes */}
+                {likeCount > 0 && (
+                  <div className="text-sm font-semibold text-gray-900 mb-1">
+                    {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+                  </div>
+                )}
+
+                {/* Post Caption */}
+                <div className="text-sm text-gray-900 mb-2">
+                  <span className="font-semibold mr-2">{postUser.name || "Unknown"}</span>
+                  <span>{post.content}</span>
+                </div>
+
+                {/* Comments Preview - Only show if there are comments */}
+                {commentCount > 0 && (
+                  <>
+                    <button 
+                      onClick={() => setOpenCommentsPostId(post._id)}
+                      className="text-sm text-gray-500 mb-2"
+                    >
+                      View all {commentCount} comments
+                    </button>
+
+                    {/* Show first 2 comments */}
+                    {post.comments && post.comments.slice(0, 2).map((comment) => (
+                      <div key={comment._id || comment.createdAt} className="text-sm text-gray-900 mb-1">
+                        <span className="font-semibold mr-2">{comment.userId?.name || 'User'}</span>
+                        <span>{comment.text}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* Time Posted */}
+                <div className="text-xs text-gray-400 mt-2">
+                  {formatTimeAgo(post.createdAt)}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Comments Modal */}
+      {openPost && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end">
+          <div className="bg-white w-full h-5/6 rounded-t-3xl overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <button 
+                onClick={() => setOpenCommentsPostId(null)}
+                className="p-1"
+              >
+                <IoArrowBack size={24} className="text-gray-600" />
+              </button>
+              <span className="font-semibold text-gray-900">Comments</span>
+              <div className="w-6"></div>
+            </div>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto px-4">
+              {(!openPost.comments || openPost.comments.length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                  <div className="text-gray-400 text-lg mb-2">No comments yet</div>
+                  <div className="text-gray-500 text-sm">Start the conversation.</div>
+                </div>
+              ) : (
+                <div className="py-4 space-y-4">
+                  {openPost.comments
+                    .filter(c => !deletedComments[c._id])
+                    .map((comment) => {
+                      const key = comment._id || comment.createdAt;
+                      const offset = swipeState[key] || 0;
+                      const commentUser = comment.userId || {};
+                      const commentAvatar = generateAvatar(commentUser);
+                      
+                      return (
+                        <div key={key} className="relative overflow-hidden">
+                          {/* Swipe backgrounds - Only show if user can edit/delete */}
+                          {token && comment._id && (
+                            <div className="absolute inset-0 pointer-events-none">
+                              <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-50 flex items-center pl-4">
+                                <div className="flex items-center gap-2 text-blue-600">
+                                  <span className="text-sm font-medium">Edit</span>
+                                </div>
+                              </div>
+                              <div className="absolute inset-y-0 right-0 w-1/2 bg-red-50 flex items-center justify-end pr-4">
+                                <div className="flex items-center gap-2 text-red-500">
+                                  <span className="text-sm font-medium">Delete</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Comment Content */}
+                          <div
+                            className="flex items-start space-x-3 bg-white py-3 transition-transform duration-150"
+                            style={{ transform: `translateX(${offset}px)` }}
+                            onTouchStart={(e) => {
+                              if (!token || !comment._id) return;
+                              
+                              const startX = e.touches[0].clientX;
+                              const startOffset = swipeState[key] || 0;
+                              let currentDx = 0;
+                              
+                              const move = (ev) => {
+                                const dx = ev.touches[0].clientX - startX;
+                                currentDx = dx;
+                                let next = startOffset + dx;
+                                next = Math.max(-140, Math.min(140, next));
+                                setSwipeState((s) => ({ ...s, [key]: next }));
+                              };
+                              
+                              const end = () => {
+                                const final = startOffset + currentDx;
+                                if (final >= 90 && comment._id) {
+                                  setDeletedComments((m) => ({ ...m, [comment._id]: true }));
+                                  dispatch(deleteComment({
+                                    postId: openPost._id,
+                                    commentId: comment._id
+                                  }))
+                                    .unwrap()
+                                    .then(() => showToast("Comment deleted", "success"))
+                                    .catch((err) => {
+                                      showToast(err?.message || 'Not authorized to delete this comment', 'error');
+                                      setDeletedComments((m) => {
+                                        const n = { ...m };
+                                        delete n[comment._id];
+                                        return n;
+                                      });
+                                    });
+                                } else if (final <= -90 && comment._id) {
+                                  setEditing({ commentId: comment._id, text: comment.text });
+                                }
+                                setSwipeState((s) => ({ ...s, [key]: 0 }));
+                                window.removeEventListener('touchmove', move);
+                                window.removeEventListener('touchend', end);
+                              };
+                              
+                              window.addEventListener('touchmove', move, { passive: true });
+                              window.addEventListener('touchend', end);
+                            }}
+                          >
+                            <div className={`w-8 h-8 bg-gradient-to-r ${commentAvatar.color} rounded-full flex items-center justify-center flex-shrink-0`}>
+                              <span className="text-white font-semibold text-xs">
+                                {commentAvatar.initials}
+                              </span>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <span className="font-semibold text-sm text-gray-900">
+                                  {commentUser.name || 'User'}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {formatTimeAgo(comment.createdAt)}
+                                </span>
+                              </div>
+                              
+                              {editing?.commentId === comment._id ? (
+                                <form
+                                  className="flex items-center space-x-2 mt-1"
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const text = editing.text.trim();
+                                    if (!text) return;
+                                    
+                                    dispatch(editComment({ 
+                                      postId: openPost._id, 
+                                      commentId: comment._id, 
+                                      text 
+                                    }))
+                                      .unwrap()
+                                      .then(() => {
+                                        showToast("Comment updated", "success");
+                                        setEditing(null);
+                                      })
+                                      .catch((err) => {
+                                        showToast(err?.message || 'Not authorized to edit this comment', 'error');
+                                      });
+                                  }}
+                                >
+                                  <input
+                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={editing.text}
+                                    onChange={(e) => setEditing({ ...editing, text: e.target.value })}
+                                    autoFocus
+                                  />
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setEditing(null)}
+                                    className="text-sm text-gray-500 px-2"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button 
+                                    type="submit" 
+                                    className="text-sm text-blue-600 font-medium px-2"
+                                  >
+                                    Save
+                                  </button>
+                                </form>
+                              ) : (
+                                <div className="text-sm text-gray-900">{comment.text}</div>
+                              )}
+                            </div>
+                            
+                            <button className="text-gray-400 hover:text-red-500 p-1">
+                              <IoHeartOutline size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Add Comment Form - Only show if user is logged in */}
+            {token && (
+              <div className="border-t border-gray-200 p-4">
+                <form
+                  className="flex items-center space-x-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const text = modalText.trim();
+                    if (!text) return;
+                    
+                    dispatch(addComment({ postId: openPost._id, text }))
+                      .unwrap()
+                      .then(() => {
+                        setModalText("");
+                        showToast("Comment added", "success");
+                      })
+                      .catch((err) => {
+                        showToast("Failed to add comment", "error");
+                      });
+                  }}
+                >
+                  <div className={`w-8 h-8 bg-gradient-to-r ${generateAvatar(userInfo).color} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <span className="text-white font-semibold text-xs">
+                      {generateAvatar(userInfo).initials}
+                    </span>
+                  </div>
+                  
+                  <input
+                    type="text"
+                    placeholder="Add a comment..."
+                    className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={modalText}
+                    onChange={(e) => setModalText(e.target.value)}
+                  />
+                  
+                  <button 
+                    type="submit" 
+                    disabled={!modalText.trim()}
+                    className="disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <IoSend 
+                      size={20} 
+                      className={modalText.trim() ? 'text-blue-500' : 'text-gray-400'} 
+                    />
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Login prompt if not logged in */}
+            {!token && (
+              <div className="border-t border-gray-200 p-4 text-center">
+                <p className="text-gray-500 text-sm">Please login to add comments</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notifications */}
       {toast && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 9999,
-          backgroundColor: toast.type === 'error' ? '#ef4444' : toast.type === 'success' ? '#10b981' : '#3b82f6',
-          color: 'white',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          fontSize: '14px',
-          fontWeight: '500',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        }}>
-          {toast.message}
-          <button 
-            onClick={() => setToast(null)}
-            style={{ marginLeft: '8px', background: 'none', border: 'none', color: 'white' }}
-          >
-            ✕
-          </button>
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className={`px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium flex items-center space-x-2 ${
+            toast.type === 'error' ? 'bg-red-500' : 
+            toast.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+          }`}>
+            <span>{toast.message}</span>
+            <button 
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              <IoClose size={16} />
+            </button>
+          </div>
         </div>
       )}
 
       <BottomNav />
+
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 };

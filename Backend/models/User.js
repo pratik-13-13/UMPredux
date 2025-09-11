@@ -25,3 +25,5 @@ const Announcement = mongoose.model('Announcement', announcementSchema);
 const Activity = mongoose.model('Activity', activitySchema);
 
 module.exports = { User, Announcement, Activity };
+
+
