@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { viewStory } from "../../Redux/storySlice.js";
-import { 
-  IoClose, 
-  IoChevronBack, 
-  IoChevronForward, 
-  IoEye 
+import { viewStory, deleteStory } from "../../Redux/storySlice.js";
+import {
+  IoClose,
+  IoChevronBack,
+  IoChevronForward,
+  IoEye,
+  IoTrash // ✅ ADDED: Import trash icon for delete button
 } from "react-icons/io5";
 
 const StoryViewer = () => {
@@ -14,16 +15,24 @@ const StoryViewer = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId } = useParams();
-  
+
   // Get cached stories data from navigation state
   const storiesData = location.state?.storiesData || [];
   const { userInfo } = useSelector((state) => state.user);
-  
+
   const [currentUserIndex, setCurrentUserIndex] = useState(0);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // ✅ ADDED: State for delete confirmation modal
+  const [toast, setToast] = useState(null); // ✅ ADDED: Toast state for notifications
+
+  // ✅ ADDED: Toast helper function
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   // Find initial user and story indices
   useEffect(() => {
@@ -64,6 +73,28 @@ const StoryViewer = () => {
       dispatch(viewStory(currentStory._id));
     }
   }, [currentStory, dispatch, userInfo]);
+
+  // ✅ ADDED: Delete story handler function
+  const handleDeleteStory = async () => {
+    try {
+      await dispatch(deleteStory(currentStory._id)).unwrap();
+      setShowDeleteConfirm(false);
+      
+      // Navigate to next story or back to feed
+      if (currentStoryIndex < currentUserStories.stories.length - 1) {
+        nextStory();
+      } else if (currentUserIndex < storiesData.length - 1) {
+        nextUser();
+      } else {
+        navigate('/feed');
+      }
+      
+      showToast("Story deleted successfully", "success");
+    } catch (error) {
+      showToast("Failed to delete story", "error");
+      setShowDeleteConfirm(false);
+    }
+  };
 
   const nextStory = () => {
     if (currentStoryIndex < currentUserStories.stories.length - 1) {
@@ -137,13 +168,12 @@ const StoryViewer = () => {
             <div
               className="h-full bg-white transition-all duration-100"
               style={{
-                width: `${
-                  index < currentStoryIndex
+                width: `${index < currentStoryIndex
                     ? 100
                     : index === currentStoryIndex
-                    ? progress
-                    : 0
-                }%`,
+                      ? progress
+                      : 0
+                  }%`,
               }}
             />
           </div>
@@ -168,12 +198,26 @@ const StoryViewer = () => {
               </div>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/feed')}
-            className="text-white p-2"
-          >
-            <IoClose size={24} />
-          </button>
+          
+          {/* ✅ ADDED: Right side header with delete button and close button */}
+          <div className="flex items-center space-x-2">
+            {/* ✅ ADDED: Delete button - only show for own stories */}
+            {currentUserStories._id._id === userInfo?._id && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 bg-red-500/80 rounded-full text-white hover:bg-red-600/80 transition-colors"
+              >
+                <IoTrash size={18} />
+              </button>
+            )}
+            
+            <button
+              onClick={() => navigate('/feed')}
+              className="text-white p-2"
+            >
+              <IoClose size={24} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -190,7 +234,7 @@ const StoryViewer = () => {
           alt="Story"
           className="w-full h-full object-cover"
         />
-        
+
         {/* Story Text */}
         {currentStory.content && (
           <div className="absolute bottom-32 left-4 right-4">
@@ -206,14 +250,14 @@ const StoryViewer = () => {
             className="w-1/3 h-full flex items-center justify-start pl-4"
             onClick={prevStory}
           >
-            <IoChevronBack size={32} className="text-white/50" />
+            {/* <IoChevronBack size={32} className="text-white/50" /> */}
           </div>
           <div className="w-1/3 h-full" />
           <div
             className="w-1/3 h-full flex items-center justify-end pr-4"
             onClick={nextStory}
           >
-            <IoChevronForward size={32} className="text-white/50" />
+            {/* <IoChevronForward size={32} className="text-white/50" /> */}
           </div>
         </div>
       </div>
@@ -228,7 +272,7 @@ const StoryViewer = () => {
             <IoEye size={16} />
             <span>Seen by {viewerCount}</span>
           </button>
-          
+
           {showViewers && viewerCount > 0 && (
             <div className="mt-2 bg-black/80 backdrop-blur-md rounded-lg p-3 max-h-32 overflow-y-auto">
               <div className="text-white text-xs mb-2">Viewed by:</div>
@@ -242,6 +286,50 @@ const StoryViewer = () => {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ✅ ADDED: Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 mx-4 max-w-sm w-full">
+            <h3 className="text-lg font-semibold mb-4">Delete Story?</h3>
+            <p className="text-gray-600 mb-6">
+              This story will be deleted permanently and can't be recovered.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteStory}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ ADDED: Toast Notifications */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className={`px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium flex items-center space-x-2 ${
+            toast.type === 'error' ? 'bg-red-500' : 
+            toast.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+          }`}>
+            <span>{toast.message}</span>
+            <button 
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              <IoClose size={16} />
+            </button>
+          </div>
         </div>
       )}
     </div>

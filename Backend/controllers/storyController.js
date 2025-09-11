@@ -7,8 +7,15 @@ const createStory = async (req, res) => {
     const { content } = req.body;
     
     let imageUrl = null;
+    
     if (req.file) {
-      imageUrl = req.file.path; // Cloudinary URL
+      if (req.file.path) {
+        // ✅ CLOUDINARY: Use secure_url or path
+        imageUrl = req.file.path;
+      } else if (req.file.filename) {
+        // ✅ LOCAL STORAGE: Create HTTP URL instead of file path
+        imageUrl = `/uploads/stories/${req.file.filename}`;
+      }
     } else if (req.body.image) {
       imageUrl = req.body.image;
     }
@@ -17,10 +24,12 @@ const createStory = async (req, res) => {
       return res.status(400).json({ error: 'Story image is required' });
     }
 
+    console.log('✅ Creating story with image URL:', imageUrl);
+
     const story = await Story.create({
       userId: req.user._id,
       content: content?.trim() || '',
-      image: imageUrl,
+      image: imageUrl, // ✅ Now saves "/uploads/stories/filename.jpg" instead of full path
     });
 
     const populated = await story.populate({ 
@@ -34,6 +43,8 @@ const createStory = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
+
 
 // Get all active stories (not expired)
 const getActiveStories = async (req, res) => {
@@ -51,7 +62,6 @@ const getActiveStories = async (req, res) => {
   }
 };
 
-// Get stories grouped by user
 // Get stories grouped by user
 const getStoriesByUser = async (req, res) => {
   try {
@@ -87,7 +97,12 @@ const getStoriesByUser = async (req, res) => {
       },
       { $sort: { 'latestStory.createdAt': -1 } }
     ]);
-
+//Populate viewers for each story
+    await Story.populate(stories, [
+      { path: 'stories.viewers', select: 'name email' },
+      { path: 'latestStory.viewers', select: 'name email' }
+    ]);
+    
     return res.json(stories);
   } catch (error) {
     console.error('Get stories by user error:', error);
@@ -95,9 +110,7 @@ const getStoriesByUser = async (req, res) => {
   }
 };
 
-
 // View a story (add current user to viewers)
-
 const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
@@ -153,24 +166,48 @@ const getStoryViewers = async (req, res) => {
   }
 };
 
-// Delete story
+// ✅ ENHANCED: Delete story with better error handling and logging
 const deleteStory = async (req, res) => {
   try {
     const { storyId } = req.params;
+    
+    // Find story first
     const story = await Story.findById(storyId);
     
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
     
-    // Check if user owns the story
+    // ✅ ENHANCED: Check ownership with detailed logging
     if (story.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      console.log(`Unauthorized delete attempt: User ${req.user._id} tried to delete story ${storyId} owned by ${story.userId}`);
       return res.status(403).json({ error: 'Not authorized to delete this story' });
     }
     
+    // ✅ ENHANCED: Optional - Delete associated cloudinary image
+    if (story.image && story.image.includes('cloudinary.com')) {
+      try {
+        const { cloudinary } = require('../middlewares/upload.js');
+        const publicId = story.image.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(`posts/${publicId}`);
+        console.log(`Deleted cloudinary image: ${publicId}`);
+      } catch (err) {
+        console.error('Error deleting image from Cloudinary:', err);
+        // Continue with story deletion even if image deletion fails
+      }
+    }
+    
+    // Delete the story
     await Story.findByIdAndDelete(storyId);
-    return res.json({ message: 'Story deleted successfully' });
+    
+    console.log(`Story deleted successfully: ${storyId} by user ${req.user._id}`);
+    return res.json({ 
+      message: 'Story deleted successfully',
+      storyId: storyId // ✅ ADDED: Return deleted story ID for frontend state management
+    });
+    
   } catch (error) {
+    console.error('Delete story error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };

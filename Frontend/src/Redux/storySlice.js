@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = "https://api-umpredux.onrender.com/api/stories";
-//const API_URL = "http://localhost:5000/api/stories";
+//const API_URL = "https://api-umpredux.onrender.com/api/stories";
+const API_URL = "http://localhost:5000/api/stories";
 
 // Fetch all stories grouped by user
 export const fetchStoriesByUser = createAsyncThunk(
@@ -74,7 +74,7 @@ export const viewStory = createAsyncThunk(
     }
 );
 
-// Delete story
+// ✅ ALREADY EXISTS: Delete story thunk - this was already properly implemented
 export const deleteStory = createAsyncThunk(
     "stories/delete",
     async (storyId, { rejectWithValue, getState }) => {
@@ -98,6 +98,7 @@ const storySlice = createSlice({
         loading: false,
         error: null,
         creating: false,
+        deleting: false, // ✅ ADDED: Loading state for delete operation
         viewing: null // Currently viewing story
     },
     reducers: {
@@ -132,13 +133,11 @@ const storySlice = createSlice({
                 state.error = action.payload;
             })
 
-
             // Create story - WITH PROPER NULL CHECKS
             .addCase(createStory.pending, (state) => {
                 state.creating = true;
                 state.error = null;
             })
-
             .addCase(createStory.fulfilled, (state, action) => {
                 state.creating = false;
                 const newStory = action.payload;
@@ -165,7 +164,6 @@ const storySlice = createSlice({
                     });
                 }
             })
-
             .addCase(createStory.rejected, (state, action) => {
                 state.creating = false;
                 state.error = action.payload;
@@ -183,14 +181,31 @@ const storySlice = createSlice({
                 });
             })
 
-            // Delete story
+            // ✅ ENHANCED: Delete story reducers with loading states
+            .addCase(deleteStory.pending, (state) => {
+                state.deleting = true;
+                state.error = null;
+            })
             .addCase(deleteStory.fulfilled, (state, action) => {
+                state.deleting = false;
                 const deletedStoryId = action.payload;
+                
+                // Remove story from all user groups
                 state.userStories.forEach(userGroup => {
                     userGroup.stories = userGroup.stories.filter(s => s._id !== deletedStoryId);
+                    
+                    // Update latestStory if the deleted story was the latest
+                    if (userGroup.latestStory && userGroup.latestStory._id === deletedStoryId) {
+                        userGroup.latestStory = userGroup.stories[0] || null;
+                    }
                 });
+                
                 // Remove user groups with no stories
                 state.userStories = state.userStories.filter(group => group.stories.length > 0);
+            })
+            .addCase(deleteStory.rejected, (state, action) => {
+                state.deleting = false;
+                state.error = action.payload;
             });
     },
 });

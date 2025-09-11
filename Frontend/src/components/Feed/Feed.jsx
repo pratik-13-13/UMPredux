@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchPosts, toggleLike, addComment, deleteComment, editComment } from "../../Redux/postSlice.js";
-import { fetchStoriesByUser } from "../../Redux/storySlice.js";
+import { fetchStoriesByUser,deleteStory  } from "../../Redux/storySlice.js";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../BottomNav/BottomNav.jsx";
 import { 
@@ -14,7 +14,8 @@ import {
   IoClose,
   IoArrowBack,
   IoSend,
-  IoAddOutline
+  IoAddOutline,
+  IoTrash 
 } from "react-icons/io5";
 
 const Feed = () => {
@@ -34,12 +35,11 @@ const [allStoriesData, setAllStoriesData] = useState(null);
   const openPost = useMemo(() => posts.find(p => p._id === openCommentsPostId), [posts, openCommentsPostId]);
 
   // Check if current user has stories - WITH NULL CHECKS
-  const currentUserStories = useMemo(() => {
+ const currentUserStories = useMemo(() => {
     if (!userInfo?._id || !Array.isArray(userStories)) return null;
     return userStories.find(group => group?._id?._id === userInfo._id);
   }, [userStories, userInfo]);
 
-  // Get other users with stories (excluding current user) - WITH NULL CHECKS
   const otherUsersWithStories = useMemo(() => {
     if (!Array.isArray(userStories)) return [];
     if (!userInfo?._id) return userStories;
@@ -51,14 +51,14 @@ const [allStoriesData, setAllStoriesData] = useState(null);
     setTimeout(() => setToast(null), 4000);
   };
 
-useEffect(() => {
+
+ useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [postsResponse, storiesResponse] = await Promise.all([
+        await Promise.all([
           dispatch(fetchPosts()),
           dispatch(fetchStoriesByUser())
         ]);
-        setAllStoriesData(storiesResponse.payload); // Cache stories data
       } catch (error) {
         console.error('Failed to fetch data:', error);
       }
@@ -66,6 +66,14 @@ useEffect(() => {
     fetchAllData();
   }, [dispatch]);
 
+  const handleDeleteStoryFromFeed = async (storyId) => {
+    try {
+      await dispatch(deleteStory(storyId)).unwrap();
+      showToast("Story deleted successfully", "success");
+    } catch (error) {
+      showToast("Failed to delete story", "error");
+    }
+  };
 
   
   const formatTimeAgo = (dateString) => {
@@ -106,7 +114,7 @@ useEffect(() => {
   };
 
   // Handle story navigation - WITH NULL CHECKS
-  const handleStoryClick = (userId) => {
+    const handleStoryClick = (userId) => {
     if (!userId) return;
     
     if (userId === userInfo?._id) {
@@ -114,12 +122,12 @@ useEffect(() => {
         navigate('/create-story');
       } else {
         navigate(`/story/${userId}`, { 
-          state: { storiesData: allStoriesData } // Pass cached data
+          state: { storiesData: userStories } // PASS CURRENT REDUX STATE
         });
       }
     } else {
       navigate(`/story/${userId}`, { 
-        state: { storiesData: allStoriesData } // Pass cached data
+        state: { storiesData: userStories } //  PASS CURRENT REDUX STATE
       });
     }
   };
@@ -174,6 +182,17 @@ useEffect(() => {
                     </div>
                   </div>
                 </button>
+
+
+                {/* ✅ ADDED: Delete button for own stories (shown on hover) */}
+                {currentUserStories && currentUserStories.stories?.length > 0 && (
+                  <button
+                    onClick={() => handleDeleteStoryFromFeed(currentUserStories.latestStory._id)}
+                    className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  >
+                    <IoTrash size={12} className="text-white" />
+                  </button>
+                )}
                 
                 <span className="text-xs text-gray-600 max-w-[60px] truncate">
                   {currentUserStories && currentUserStories.stories?.length > 0

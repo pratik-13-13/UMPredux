@@ -5,7 +5,7 @@ const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const postRoutes = require('./routes/postRoutes');
 const storyRoutes = require('./routes/storyRoutes')
-
+const path = require('path');
 
 require('dotenv').config();
 
@@ -14,6 +14,10 @@ const app = express();
 // Middlewares
 app.use(cors());
 app.use(express.json()); // parse JSON body
+
+
+// Serve uploads folder statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
 
 // Connect to MongoDB
 console.log("MONGO_URI:", process.env.MONGO_URI);

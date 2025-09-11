@@ -18,18 +18,28 @@ const CreateStory = () => {
   const [content, setContent] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [toast, setToast] = useState(null); // ✅ ADDED: Toast for feedback
   const fileInputRef = useRef(null);
+
+  // ✅ ADDED: Toast helper function
+  const showToast = (message, type = 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
+    
+    console.log('Selected file:', file); // Debug log
+     
     if (file) {
       if (file.size > 10 * 1024 * 1024) { // 10MB limit for stories
-        alert('Image size must be less than 10MB');
+        showToast('Image size must be less than 10MB', 'error');
         return;
       }
       
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        showToast('Please select an image file', 'error');
         return;
       }
 
@@ -39,31 +49,38 @@ const CreateStory = () => {
       reader.readAsDataURL(file);
     }
   };
-  
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!imageFile) {
-    alert('Please select an image for your story');
-    return;
-  }
-  
-  try {
-    const result = await dispatch(createStory({
-      content: content.trim(),
-      image: imageFile
-    })).unwrap();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!imageFile) {
+      showToast('Please select an image for your story', 'error');
+      return;
+    }
     
-    console.log('Story created successfully:', result);
-    navigate('/feed');
-    
-  } catch (err) {
-    console.error('Failed to create story:', err);
-    alert('Failed to create story. Please try again.');
-  }
-};
+    // ✅ ENHANCED: Debug logs for troubleshooting
+    console.log('imageFile:', imageFile);
+    console.log('imageFile type:', typeof imageFile);
+    console.log('imageFile instanceof File:', imageFile instanceof File);
+    console.log('imageFile size:', imageFile.size);
+    console.log('imageFile name:', imageFile.name);
 
-
+    try {
+      const result = await dispatch(createStory({
+        content: content.trim(),
+        image: imageFile
+      })).unwrap();
+      
+      console.log('Story created successfully:', result);
+      showToast('Story created successfully!', 'success');
+      
+      // Navigate after a short delay to show success message
+      setTimeout(() => navigate('/feed'), 1000);
+      
+    } catch (err) {
+      console.error('Failed to create story:', err);
+      showToast(err.message || 'Failed to create story. Please try again.', 'error');
+    }
+  };
 
   // Generate user avatar
   const generateAvatar = (user) => {
@@ -97,7 +114,7 @@ const handleSubmit = async (e) => {
           <button 
             onClick={handleSubmit}
             disabled={creating || !imageFile}
-            className="text-blue-400 font-semibold disabled:opacity-50"
+            className="text-blue-400 font-semibold disabled:opacity-50 transition-opacity"
           >
             {creating ? 'Sharing...' : 'Share'}
           </button>
@@ -125,6 +142,9 @@ const handleSubmit = async (e) => {
                   rows="3"
                   maxLength={200}
                 />
+                <div className="text-white/60 text-sm mt-1">
+                  {content.length}/200 characters
+                </div>
               </div>
               
               {/* User Info */}
@@ -150,7 +170,7 @@ const handleSubmit = async (e) => {
             <div className="space-y-4">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center space-x-3 bg-white/20 backdrop-blur-md rounded-full px-6 py-3 text-white"
+                className="flex items-center space-x-3 bg-white/20 backdrop-blur-md rounded-full px-6 py-3 text-white hover:bg-white/30 transition-colors"
               >
                 <IoCameraOutline size={24} />
                 <span>Camera</span>
@@ -158,7 +178,7 @@ const handleSubmit = async (e) => {
               
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center space-x-3 bg-white/20 backdrop-blur-md rounded-full px-6 py-3 text-white"
+                className="flex items-center space-x-3 bg-white/20 backdrop-blur-md rounded-full px-6 py-3 text-white hover:bg-white/30 transition-colors"
               >
                 <IoImageOutline size={24} />
                 <span>Gallery</span>
@@ -176,6 +196,25 @@ const handleSubmit = async (e) => {
         className="hidden"
       />
 
+      {/* ✅ ENHANCED: Toast Notifications */}
+      {toast && (
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50">
+          <div className={`px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium flex items-center space-x-2 ${
+            toast.type === 'error' ? 'bg-red-500' : 
+            toast.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
+          }`}>
+            <span>{toast.message}</span>
+            <button 
+              onClick={() => setToast(null)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              <IoClose size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy error display */}
       {error && (
         <div className="fixed bottom-4 left-4 right-4 bg-red-500 text-white p-3 rounded-lg text-center">
           {error}
