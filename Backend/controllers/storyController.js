@@ -52,6 +52,7 @@ const getActiveStories = async (req, res) => {
 };
 
 // Get stories grouped by user
+// Get stories grouped by user
 const getStoriesByUser = async (req, res) => {
   try {
     const stories = await Story.aggregate([
@@ -59,24 +60,41 @@ const getStoriesByUser = async (req, res) => {
       { $sort: { createdAt: -1 } },
       {
         $group: {
-          _id: '$userId',
-          stories: { $push: '$$ROOT' },
-          latestStory: { $first: '$$ROOT' }
+          _id: "$userId", // Group by userId ObjectId
+          stories: { $push: "$$ROOT" },
+          latestStory: { $first: "$$ROOT" }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo"
+        }
+      },
+      { $unwind: "$userInfo" },
+      {
+        $project: {
+          _id: {
+            _id: "$userInfo._id",
+            name: "$userInfo.name",
+            email: "$userInfo.email"
+          },
+          stories: 1,
+          latestStory: 1
         }
       },
       { $sort: { 'latestStory.createdAt': -1 } }
     ]);
 
-    await Story.populate(stories, [
-      { path: '_id', select: 'name email' },
-      { path: 'stories.viewers', select: 'name email' }
-    ]);
-
     return res.json(stories);
   } catch (error) {
+    console.error('Get stories by user error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 // View a story (add current user to viewers)
 const viewStory = async (req, res) => {

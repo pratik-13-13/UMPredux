@@ -39,27 +39,31 @@ const CreateStory = () => {
       reader.readAsDataURL(file);
     }
   };
+  
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!imageFile) {
-      alert('Please select an image for your story');
-      return;
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!imageFile) {
+    alert('Please select an image for your story');
+    return;
+  }
+  
+  try {
+    const result = await dispatch(createStory({
+      content: content.trim(),
+      image: imageFile
+    })).unwrap();
     
-    try {
-      const res = await dispatch(createStory({
-        content: content.trim(),
-        image: imageFile
-      }));
-      
-      if (!res.error) {
-        navigate('/feed');
-      }
-    } catch (err) {
-      console.error('Failed to create story:', err);
-    }
-  };
+    console.log('Story created successfully:', result);
+    navigate('/feed');
+    
+  } catch (err) {
+    console.error('Failed to create story:', err);
+    alert('Failed to create story. Please try again.');
+  }
+};
+
+
 
   // Generate user avatar
   const generateAvatar = (user) => {

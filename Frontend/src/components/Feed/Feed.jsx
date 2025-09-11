@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchPosts, toggleLike, addComment, deleteComment, editComment } from "../../Redux/postSlice.js";
-import { fetchStoriesByUser } from "../../Redux/storySlice.js"; // Add story import
-import { useNavigate } from "react-router-dom"; // Add navigation
+import { fetchStoriesByUser } from "../../Redux/storySlice.js";
+import { useNavigate } from "react-router-dom";
 import BottomNav from "../BottomNav/BottomNav.jsx";
 import { 
   IoHeartOutline, 
@@ -14,15 +14,15 @@ import {
   IoClose,
   IoArrowBack,
   IoSend,
-  IoAddOutline // Add plus icon
+  IoAddOutline
 } from "react-icons/io5";
 
 const Feed = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate(); // Add navigation
+  const navigate = useNavigate();
   const { items: posts, loading } = useSelector((state) => state.posts);
   const { userInfo, token } = useSelector((state) => state.user);
-  const { userStories, loading: storiesLoading } = useSelector((state) => state.stories); // Add stories state
+  const { userStories, loading: storiesLoading } = useSelector((state) => state.stories);
   const [openCommentsPostId, setOpenCommentsPostId] = useState(null);
   const [modalText, setModalText] = useState("");
   const [swipeState, setSwipeState] = useState({});
@@ -32,14 +32,17 @@ const Feed = () => {
 
   const openPost = useMemo(() => posts.find(p => p._id === openCommentsPostId), [posts, openCommentsPostId]);
 
-  // Check if current user has stories
+  // Check if current user has stories - WITH NULL CHECKS
   const currentUserStories = useMemo(() => {
-    return userStories.find(group => group._id._id === userInfo?._id);
+    if (!userInfo?._id || !Array.isArray(userStories)) return null;
+    return userStories.find(group => group?._id?._id === userInfo._id);
   }, [userStories, userInfo]);
 
-  // Get other users with stories (excluding current user)
+  // Get other users with stories (excluding current user) - WITH NULL CHECKS
   const otherUsersWithStories = useMemo(() => {
-    return userStories.filter(group => group._id._id !== userInfo?._id);
+    if (!Array.isArray(userStories)) return [];
+    if (!userInfo?._id) return userStories;
+    return userStories.filter(group => group?._id?._id && group._id._id !== userInfo._id);
   }, [userStories, userInfo]);
 
   const showToast = (message, type = 'error') => {
@@ -49,7 +52,7 @@ const Feed = () => {
 
   useEffect(() => {
     dispatch(fetchPosts());
-    dispatch(fetchStoriesByUser()); // Fetch stories on mount
+    dispatch(fetchStoriesByUser());
   }, [dispatch]);
 
   const formatTimeAgo = (dateString) => {
@@ -89,8 +92,10 @@ const Feed = () => {
     };
   };
 
-  // Handle story navigation
+  // Handle story navigation - WITH NULL CHECKS
   const handleStoryClick = (userId) => {
+    if (!userId) return;
+    
     if (userId === userInfo?._id) {
       // If it's current user's story or "Add Your Story", navigate to create
       if (!currentUserStories || currentUserStories.stories.length === 0) {
@@ -124,7 +129,7 @@ const Feed = () => {
         <div className="border-b border-gray-200 py-4">
           <div className="flex space-x-4 px-4 overflow-x-auto scrollbar-hide">
             
-            {/* Current User's Story - Always shows first */}
+            {/* Current User's Story - Always shows first - WITH NULL CHECKS */}
             {userInfo && (
               <div className="flex flex-col items-center space-y-1 flex-shrink-0">
                 <button
@@ -133,7 +138,7 @@ const Feed = () => {
                 >
                   {/* Story Ring - Different styles for has/no stories */}
                   <div className={`w-16 h-16 rounded-full p-0.5 ${
-                    currentUserStories && currentUserStories.stories.length > 0
+                    currentUserStories && currentUserStories.stories?.length > 0
                       ? 'bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500' // Has stories
                       : 'bg-gray-300' // No stories
                   }`}>
@@ -144,7 +149,7 @@ const Feed = () => {
                         </span>
                         
                         {/* Plus icon for "Add Your Story" */}
-                        {(!currentUserStories || currentUserStories.stories.length === 0) && (
+                        {(!currentUserStories || currentUserStories.stories?.length === 0) && (
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
                             <IoAddOutline size={12} className="text-white" />
                           </div>
@@ -155,7 +160,7 @@ const Feed = () => {
                 </button>
                 
                 <span className="text-xs text-gray-600 max-w-[60px] truncate">
-                  {currentUserStories && currentUserStories.stories.length > 0
+                  {currentUserStories && currentUserStories.stories?.length > 0
                     ? 'Your story'
                     : 'Add story'
                   }
@@ -163,11 +168,11 @@ const Feed = () => {
               </div>
             )}
 
-            {/* Other Users' Stories */}
+            {/* Other Users' Stories - WITH NULL CHECKS */}
             {otherUsersWithStories.map((userGroup) => (
-              <div key={userGroup._id._id} className="flex flex-col items-center space-y-1 flex-shrink-0">
+              <div key={userGroup?._id?._id || Math.random()} className="flex flex-col items-center space-y-1 flex-shrink-0">
                 <button
-                  onClick={() => handleStoryClick(userGroup._id._id)}
+                  onClick={() => handleStoryClick(userGroup?._id?._id)}
                   className="relative"
                 >
                   <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500 p-0.5">
@@ -181,7 +186,7 @@ const Feed = () => {
                   </div>
                 </button>
                 <span className="text-xs text-gray-600 max-w-[60px] truncate">
-                  {userGroup._id.name || 'User'}
+                  {userGroup._id?.name || 'User'}
                 </span>
               </div>
             ))}
@@ -494,7 +499,7 @@ const Feed = () => {
             </div>
 
             {/* Add Comment Form - Only show if user is logged in */}
-            {token && (
+            {token && userInfo && (
               <div className="border-t border-gray-200 p-4">
                 <form
                   className="flex items-center space-x-3"
