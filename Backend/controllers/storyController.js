@@ -1,7 +1,7 @@
 const { Story } = require('../models/Story.js');
 const { User } = require('../models/User.js');
 
-// Create a new story
+// ✅ FIXED: Create story with proper URL handling
 const createStory = async (req, res) => {
   try {
     const { content } = req.body;
@@ -9,12 +9,14 @@ const createStory = async (req, res) => {
     let imageUrl = null;
     
     if (req.file) {
-      if (req.file.path) {
-        // ✅ CLOUDINARY: Use secure_url or path
+      if (req.file.path && req.file.path.includes('cloudinary.com')) {
+        // ✅ CLOUDINARY: Use cloudinary URL directly
         imageUrl = req.file.path;
       } else if (req.file.filename) {
-        // ✅ LOCAL STORAGE: Create HTTP URL instead of file path
-        imageUrl = `/uploads/stories/${req.file.filename}`;
+        // ✅ FIXED: Create proper HTTP URL for local storage
+        const protocol = req.protocol || 'http';
+        const host = req.get('host') || 'localhost:5000';
+        imageUrl = `${protocol}://${host}/uploads/stories/${req.file.filename}`;
       }
     } else if (req.body.image) {
       imageUrl = req.body.image;
@@ -24,12 +26,12 @@ const createStory = async (req, res) => {
       return res.status(400).json({ error: 'Story image is required' });
     }
 
-    console.log('✅ Creating story with image URL:', imageUrl);
+    // console.log('✅ Creating story with image URL:', imageUrl);
 
     const story = await Story.create({
       userId: req.user._id,
       content: content?.trim() || '',
-      image: imageUrl, // ✅ Now saves "/uploads/stories/filename.jpg" instead of full path
+      image: imageUrl,
     });
 
     const populated = await story.populate({ 
@@ -43,8 +45,6 @@ const createStory = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
-
-
 
 // Get all active stories (not expired)
 const getActiveStories = async (req, res) => {
@@ -70,7 +70,7 @@ const getStoriesByUser = async (req, res) => {
       { $sort: { createdAt: -1 } },
       {
         $group: {
-          _id: "$userId", // Group by userId ObjectId
+          _id: "$userId",
           stories: { $push: "$$ROOT" },
           latestStory: { $first: "$$ROOT" }
         }
@@ -78,7 +78,7 @@ const getStoriesByUser = async (req, res) => {
       {
         $lookup: {
           from: "users",
-          localField: "_id",
+          localField: "_id", 
           foreignField: "_id",
           as: "userInfo"
         }
@@ -97,7 +97,8 @@ const getStoriesByUser = async (req, res) => {
       },
       { $sort: { 'latestStory.createdAt': -1 } }
     ]);
-//Populate viewers for each story
+
+    // ✅ CRITICAL: Populate viewers with full data
     await Story.populate(stories, [
       { path: 'stories.viewers', select: 'name email' },
       { path: 'latestStory.viewers', select: 'name email' }
@@ -110,7 +111,8 @@ const getStoriesByUser = async (req, res) => {
   }
 };
 
-// View a story (add current user to viewers)
+
+// ✅ OPTIONAL: Enhanced viewStory controller
 const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
@@ -122,23 +124,53 @@ const viewStory = async (req, res) => {
     
     const userId = req.user._id;
     
-    // Add user to viewers if not already viewed (avoid duplicates)
-    if (!story.viewers.some(viewerId => viewerId.toString() === userId.toString())) {
-      story.viewers.push(userId);
-      await story.save();
+    // ✅ OPTIONAL: Don't count views for own stories
+    if (story.userId.toString() === userId.toString()) {
+      //console.log(`🚫 User ${userId} viewing own story ${storyId} - not counting view`);
+      
+      const populated = await Story.findById(storyId)
+        .populate({ path: 'userId', select: 'name email' })
+        .populate({ path: 'viewers', select: 'name email' });
+        
+      return res.json({
+        success: true,
+        story: populated,
+        viewCount: populated.viewers.length,
+        hasViewed: false,
+        isOwnStory: true
+      });
     }
     
-    // Return story with populated viewers
+    // Check if user already viewed (prevent duplicates)
+    const hasViewed = story.viewers.some(viewerId => 
+      viewerId.toString() === userId.toString()
+    );
+    
+    if (!hasViewed) {
+      story.viewers.push(userId);
+      await story.save();
+      //console.log(`✅ User ${userId} viewed story ${storyId} for the first time`);
+    } else {
+      //console.log(`📝 User ${userId} already viewed story ${storyId}`);
+    }
+    
     const populated = await Story.findById(storyId)
       .populate({ path: 'userId', select: 'name email' })
       .populate({ path: 'viewers', select: 'name email' });
       
-    return res.json(populated);
+    return res.json({
+      success: true,
+      story: populated,
+      viewCount: populated.viewers.length,
+      hasViewed: true,
+      isOwnStory: false
+    });
   } catch (error) {
     console.error('View story error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };
+
 
 // Get story viewers (for the story owner)
 const getStoryViewers = async (req, res) => {
@@ -166,44 +198,29 @@ const getStoryViewers = async (req, res) => {
   }
 };
 
-// ✅ ENHANCED: Delete story with better error handling and logging
+// ✅ ENHANCED: Delete story
 const deleteStory = async (req, res) => {
   try {
     const { storyId } = req.params;
     
-    // Find story first
     const story = await Story.findById(storyId);
     
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
     }
     
-    // ✅ ENHANCED: Check ownership with detailed logging
     if (story.userId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      console.log(`Unauthorized delete attempt: User ${req.user._id} tried to delete story ${storyId} owned by ${story.userId}`);
+      //console.log(`Unauthorized delete attempt: User ${req.user._id} tried to delete story ${storyId} owned by ${story.userId}`);
       return res.status(403).json({ error: 'Not authorized to delete this story' });
-    }
-    
-    // ✅ ENHANCED: Optional - Delete associated cloudinary image
-    if (story.image && story.image.includes('cloudinary.com')) {
-      try {
-        const { cloudinary } = require('../middlewares/upload.js');
-        const publicId = story.image.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(`posts/${publicId}`);
-        console.log(`Deleted cloudinary image: ${publicId}`);
-      } catch (err) {
-        console.error('Error deleting image from Cloudinary:', err);
-        // Continue with story deletion even if image deletion fails
-      }
     }
     
     // Delete the story
     await Story.findByIdAndDelete(storyId);
     
-    console.log(`Story deleted successfully: ${storyId} by user ${req.user._id}`);
+    //console.log(`Story deleted successfully: ${storyId} by user ${req.user._id}`);
     return res.json({ 
       message: 'Story deleted successfully',
-      storyId: storyId // ✅ ADDED: Return deleted story ID for frontend state management
+      storyId: storyId
     });
     
   } catch (error) {
@@ -212,11 +229,70 @@ const deleteStory = async (req, res) => {
   }
 };
 
+// ✅ ADDED: Clean duplicate viewers utility function
+const cleanDuplicateViewers = async (req, res) => {
+  try {
+    const stories = await Story.find({});
+    let cleanedCount = 0;
+    
+    for (let story of stories) {
+      const originalCount = story.viewers.length;
+      const uniqueViewers = [...new Set(story.viewers.map(v => v.toString()))];
+      
+      if (uniqueViewers.length !== originalCount) {
+        story.viewers = uniqueViewers;
+        await story.save();
+        cleanedCount++;
+        //console.log(`Cleaned duplicates for story ${story._id}: ${originalCount} -> ${uniqueViewers.length}`);
+      }
+    }
+    
+    return res.json({ 
+      message: 'Duplicate viewers cleaned successfully',
+      storiesCleaned: cleanedCount
+    });
+  } catch (error) {
+    //console.error('Clean duplicates error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+//  Clean old file path stories
+const cleanOldFilePaths = async (req, res) => {
+  try {
+    const stories = await Story.find({});
+    let cleanedCount = 0;
+    
+    for (let story of stories) {
+      // Check if image path is an absolute file path
+      if (story.image && (story.image.startsWith('D:\\') || story.image.startsWith('C:\\') || story.image.includes('backend\\uploads'))) {
+        //console.log(`🗑️ Deleting story with invalid path: ${story.image}`);
+        await Story.findByIdAndDelete(story._id);
+        cleanedCount++;
+      }
+    }
+    
+    return res.json({ 
+      message: `Cleaned ${cleanedCount} stories with invalid file paths`,
+      cleanedCount 
+    });
+  } catch (error) {
+    //console.error('Clean old file paths error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
 module.exports = {
   createStory,
   getActiveStories,
   getStoriesByUser,
   viewStory,
   deleteStory,
-  getStoryViewers 
+  getStoryViewers,
+  cleanDuplicateViewers,
+  cleanOldFilePaths 
 };
+
+
+

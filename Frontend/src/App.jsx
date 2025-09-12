@@ -1,17 +1,17 @@
 import React from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import './App.css';
-import Login from './components/Login/Login.jsx';
-import Register from './components/Register/Register.jsx';
-import Home from './components/Home/Home.jsx';
-import EditUser from './components/Edit/Edit.jsx';
-import AddUser from './components/AddUser/AddUser.jsx';
-import Profile from './components/Profile/Profile.jsx'; 
+import './Styles/App.css';
+import Login from './Pages/Auth/Login/Login.jsx';
+import Register from './Pages/Auth/Register/Register.jsx';
+import Home from './Pages/Home/Home.jsx';
+import EditUser from './components/Forms/Edit/Edit.jsx';
+import AddUser from './Pages/AddUser/AddUser.jsx';
+import Profile from './Pages/Profile/Profile.jsx'; 
 import ProtectedRoute from './ProtectedRoute.jsx';
-import Feed from './components/Feed/Feed.jsx';
-import CreatePost from './components/CreatePost/CreatePost.jsx';
-import CreateStory from './components/CreateStory/CreateStory.jsx';
-import StoryViewer from './components/StoryViewer/StoryViewer.jsx'; 
+import Feed from './Pages/Feed/Feed.jsx';
+import CreatePost from './components/Forms/CreatePost/CreatePost.jsx';
+import CreateStory from './Pages/Story/CreateStory/CreateStory.jsx';
+import StoryViewer from './Pages/Story/StoryViewer/StoryViewer.jsx'; 
 
 function App() {
   const ramRouter = createBrowserRouter([

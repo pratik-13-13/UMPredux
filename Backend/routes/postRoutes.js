@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middlewares/auth.js');
-const { upload } = require('../middlewares/upload.js');
+const { postUpload } = require('../middlewares/upload.js');
 const {
     createPost,
     deletePost,
@@ -17,7 +17,7 @@ const {
 router.get('/', getAllPosts);
 
 // Create a post with optional image upload (requires login)
-router.post('/', authenticateToken, upload.single('image'), createPost);
+router.post('/', authenticateToken, postUpload.single('image'), createPost);
 
 // Delete a post (requires login)
 router.delete('/:postId', authenticateToken, deletePost);

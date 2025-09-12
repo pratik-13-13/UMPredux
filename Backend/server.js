@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -13,11 +12,20 @@ const app = express();
 
 // Middlewares
 app.use(cors());
-app.use(express.json()); // parse JSON body
+app.use(express.json());
 
+// ✅ FIXED: Serve both uploads folders statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Serve uploads folder statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+// ✅ ADDED: Specific static serving for stories and posts
+app.use('/uploads/stories', express.static(path.join(__dirname, 'uploads', 'stories')));
+app.use('/uploads/posts', express.static(path.join(__dirname, 'uploads', 'posts')));
+
+// ✅ ADDED: Debug middleware to log static file requests
+app.use('/uploads', (req, res, next) => {
+  console.log(`📁 Static file request: ${req.url}`);
+  next();
+});
 
 // Connect to MongoDB
 console.log("MONGO_URI:", process.env.MONGO_URI);
@@ -36,6 +44,3 @@ app.use('/api/stories', storyRoutes);
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-
-
