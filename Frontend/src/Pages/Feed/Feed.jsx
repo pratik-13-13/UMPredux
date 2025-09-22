@@ -5,19 +5,17 @@ import { fetchPosts, toggleLike, addComment, deleteComment, editComment, deleteP
 import { fetchStoriesByUser, deleteStory } from "../../Store/Slices/storySlice.js";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "../../components/Layout/BottomNav/BottomNav.jsx";
-import { 
-  IoHeartOutline, 
-  IoHeart, 
-  IoChatbubbleOutline, 
-  IoPaperPlaneOutline,
-  IoBookmarkOutline,
-  IoEllipsisHorizontal,
-  IoClose,
-  IoArrowBack,
-  IoSend,
-  IoAddOutline,
-  IoTrash 
-} from "react-icons/io5";
+
+// Import all separated components
+import Header from "./components/Header.jsx";
+import StoriesSection from "./Components/StoriesSection.jsx";
+import PostCard from "./Components/PostCard.jsx";
+import CommentsModal from "./components/CommentsModal.jsx";
+import DeleteModal from "./components/DeleteModal.jsx";
+import Toast from "./components/Toast";
+
+// NEW: Import Follow components
+import { SuggestionsList } from "../../components/Follow";
 
 const Feed = () => {
   const dispatch = useDispatch();
@@ -33,7 +31,7 @@ const Feed = () => {
   const [toast, setToast] = useState(null);
   const [allStoriesData, setAllStoriesData] = useState(null);
   
-  // ✅ ADD: Delete post states
+  // Delete post states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [showDropdown, setShowDropdown] = useState(null);
 
@@ -79,7 +77,7 @@ const Feed = () => {
     }
   };
 
-  // ✅ ADD: Delete post handler
+  // Delete post handler
   const handleDeletePost = async (postId) => {
     try {
       await dispatch(deletePost(postId)).unwrap();
@@ -138,12 +136,12 @@ const Feed = () => {
         navigate('/create-story');
       } else {
         navigate(`/story/${userId}`, { 
-          state: { storiesData: userStories } // PASS CURRENT REDUX STATE
+          state: { storiesData: userStories }
         });
       }
     } else {
       navigate(`/story/${userId}`, { 
-        state: { storiesData: userStories } //  PASS CURRENT REDUX STATE
+        state: { storiesData: userStories }
       });
     }
   };
@@ -151,547 +149,154 @@ const Feed = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Instagram Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent">
-            Instagram
-          </h1>
-          <div className="flex items-center space-x-4">
-            <button>
-              <IoPaperPlaneOutline size={24} className="text-gray-800" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header />
 
-      {/* Stories Section - Dynamic with "Your Story" always first */}
-      {(userInfo || otherUsersWithStories.length > 0) && (
-        <div className="border-b border-gray-200 py-4">
-          <div className="flex space-x-4 px-4 overflow-x-auto scrollbar-hide">
-            
-            {/* Current User's Story - Always shows first - WITH NULL CHECKS */}
-            {userInfo && (
-              <div className="flex flex-col items-center space-y-1 flex-shrink-0 group relative">
-                <button
-                  onClick={() => handleStoryClick(userInfo._id)}
-                  className="relative"
-                >
-                  {/* Story Ring - Different styles for has/no stories */}
-                  <div className={`w-16 h-16 rounded-full p-0.5 ${
-                    currentUserStories && currentUserStories.stories?.length > 0
-                      ? 'bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500' // Has stories
-                      : 'bg-gray-300' // No stories
-                  }`}>
-                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
-                      <div className={`w-12 h-12 bg-gradient-to-r ${generateAvatar(userInfo).color} rounded-full flex items-center justify-center relative`}>
-                        <span className="text-white font-semibold text-xs">
-                          {generateAvatar(userInfo).initials}
-                        </span>
-                        
-                        {/* Plus icon for "Add Your Story" */}
-                        {(!currentUserStories || currentUserStories.stories?.length === 0) && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white">
-                            <IoAddOutline size={12} className="text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-                {/* ✅ FIXED: Delete button for own stories (shown on hover) */}
-                {currentUserStories && currentUserStories.stories?.length > 0 && (
-                  <button
-                    onClick={() => handleDeleteStoryFromFeed(currentUserStories.latestStory._id)}
-                    className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                  >
-                    <IoTrash size={12} className="text-white" />
-                  </button>
-                )}
-                
-                <span className="text-xs text-gray-600 max-w-[60px] truncate">
-                  {currentUserStories && currentUserStories.stories?.length > 0
-                    ? 'Your story'
-                    : 'Add story'
-                  }
-                </span>
-              </div>
-            )}
+      {/* UPDATED: Instagram-style Layout */}
+      <div className="max-w-lg mx-auto md:max-w-6xl md:px-4">
+        <div className="md:flex md:gap-8 md:justify-center">
+          {/* Main Feed Content */}
+          <div className="w-full md:max-w-lg">
+            {/* Stories Section - Instagram Style */}
+            <div className="border-b border-gray-200 bg-white">
+              <StoriesSection 
+                userInfo={userInfo}
+                otherUsersWithStories={otherUsersWithStories}
+                currentUserStories={currentUserStories}
+                generateAvatar={generateAvatar}
+                handleStoryClick={handleStoryClick}
+                handleDeleteStoryFromFeed={handleDeleteStoryFromFeed}
+              />
+            </div>
 
-            {/* Other Users' Stories - WITH NULL CHECKS */}
-            {otherUsersWithStories.map((userGroup) => (
-              <div key={userGroup?._id?._id || Math.random()} className="flex flex-col items-center space-y-1 flex-shrink-0">
-                <button
-                  onClick={() => handleStoryClick(userGroup?._id?._id)}
-                  className="relative"
-                >
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500 p-0.5">
-                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center">
-                      <div className={`w-12 h-12 bg-gradient-to-r ${generateAvatar(userGroup._id).color} rounded-full flex items-center justify-center`}>
-                        <span className="text-white font-semibold text-xs">
-                          {generateAvatar(userGroup._id).initials}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-                <span className="text-xs text-gray-600 max-w-[60px] truncate">
-                  {userGroup._id?.name || 'User'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Feed Content */}
-      <div className="pb-20">
-        {loading && posts.length === 0 && (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500"></div>
-          </div>
-        )}
-        
-        {!loading && posts.length === 0 && (
-          <div className="text-center py-20">
-            <div className="text-gray-400 text-lg mb-2">No posts yet</div>
-            <div className="text-gray-500 text-sm">Follow people to see their posts</div>
-          </div>
-        )}
-
-        {posts.map((post) => {
-          const isLiked = (post.likes || []).some((id) => id === userInfo?._id);
-          const likeCount = (post.likes || []).length;
-          const commentCount = (post.comments || []).length;
-          const postUser = post.userId || {};
-          const userAvatar = generateAvatar(postUser);
-          
-          return (
-            <div key={post._id} className="bg-white border-b border-gray-100">
-              {/* Post Header */}
-              <div className="flex items-center justify-between p-3">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-8 h-8 bg-gradient-to-r ${userAvatar.color} rounded-full flex items-center justify-center`}>
-                    <span className="text-white font-semibold text-xs">
-                      {userAvatar.initials}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <span className="font-semibold text-sm text-gray-900">
-                      {postUser.name || "Unknown"}
-                    </span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-xs text-gray-500">
-                      {formatTimeAgo(post.createdAt)}
-                    </span>
-                  </div>
+            {/* Feed Posts - No spacing between posts like Instagram */}
+            <div className="pb-20 md:pb-0">
+              {loading && posts.length === 0 && (
+                <div className="flex justify-center items-center h-64 bg-white">
+                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-pink-500"></div>
                 </div>
-                
-                {/* ✅ ADD: Options dropdown (only show for post owner) */}
-                {userInfo && post.userId._id === userInfo._id && (
-                  <div className="relative">
-                    <button 
-                      onClick={() => setShowDropdown(showDropdown === post._id ? null : post._id)}
-                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <IoEllipsisHorizontal size={16} className="text-gray-600" />
-                    </button>
-                    
-                    {showDropdown === post._id && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[120px] z-10">
-                        <button 
-                          onClick={() => {
-                            setShowDeleteConfirm(post._id);
-                            setShowDropdown(null);
-                          }}
-                          className="flex items-center gap-2 w-full px-4 py-2 text-left text-red-500 hover:bg-red-50 transition-colors"
-                        >
-                          <IoTrash size={16} />
-                          Delete Post
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Show options for non-owners (but no delete option) */}
-                {(!userInfo || post.userId._id !== userInfo._id) && (
-                  <IoEllipsisHorizontal size={16} className="text-gray-600" />
-                )}
-              </div>
-
-              {/* Post Image - Only show if image exists */}
-              {post.image && (
-                <div className="w-full aspect-square bg-gray-100">
-                  <img 
-                    src={post.image} 
-                    alt="Post content" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
+              )}
+              
+              {!loading && posts.length === 0 && (
+                <div className="text-center py-20 bg-white">
+                  <div className="text-gray-400 text-lg mb-2">No posts yet</div>
+                  <div className="text-gray-500 text-sm">Follow people to see their posts</div>
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="px-3 py-2">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={() => dispatch(toggleLike(post._id))}
-                      className="transition-transform active:scale-125"
-                      disabled={!token}
-                    >
-                      {isLiked ? (
-                        <IoHeart size={24} className="text-red-500" />
-                      ) : (
-                        <IoHeartOutline size={24} className="text-gray-900" />
-                      )}
-                    </button>
-                    <button onClick={() => setOpenCommentsPostId(post._id)}>
-                      <IoChatbubbleOutline size={24} className="text-gray-900" />
-                    </button>
-                    <button>
-                      <IoPaperPlaneOutline size={24} className="text-gray-900" />
-                    </button>
+              {posts.map((post) => (
+                <PostCard 
+                  key={post._id}
+                  post={post}
+                  userInfo={userInfo}
+                  dispatch={dispatch}
+                  toggleLike={toggleLike}
+                  setOpenCommentsPostId={setOpenCommentsPostId}
+                  token={token}
+                  formatTimeAgo={formatTimeAgo}
+                  generateAvatar={generateAvatar}
+                  showDropdown={showDropdown}
+                  setShowDropdown={setShowDropdown}
+                  setShowDeleteConfirm={setShowDeleteConfirm}
+                />
+              ))}
+            </div>
+          </div>
+          
+          {/* Desktop Sidebar - Only show on desktop */}
+          <div className="hidden lg:block w-80">
+            <div className="sticky top-20 space-y-4">
+              {/* User Profile Info Card */}
+              {userInfo && (
+                <div className="bg-white p-4">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-14 h-14 bg-gradient-to-r ${generateAvatar(userInfo).color} rounded-full flex items-center justify-center`}>
+                      <span className="text-white font-semibold text-lg">
+                        {generateAvatar(userInfo).initials}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900">{userInfo.name}</h3>
+                      <p className="text-gray-500 text-sm">{userInfo.email}</p>
+                    </div>
                   </div>
-                  <button>
-                    <IoBookmarkOutline size={24} className="text-gray-900" />
-                  </button>
                 </div>
+              )}
 
-                {/* Like Count - Only show if there are likes */}
-                {likeCount > 0 && (
-                  <div className="text-sm font-semibold text-gray-900 mb-1">
-                    {likeCount} {likeCount === 1 ? 'like' : 'likes'}
+              {/* Follow Suggestions */}
+              <SuggestionsList 
+                title="Suggested for you"
+                limit={5}
+                variant="sidebar"
+              />
+
+              {/* Footer Links (Instagram-style) */}
+              <div className="text-xs text-gray-400 px-4">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span>About</span>
+                    <span>Help</span>
+                    <span>Press</span>
+                    <span>API</span>
+                    <span>Jobs</span>
+                    <span>Privacy</span>
                   </div>
-                )}
-
-                {/* Post Caption */}
-                <div className="text-sm text-gray-900 mb-2">
-                  <span className="font-semibold mr-2">{postUser.name || "Unknown"}</span>
-                  <span>{post.content}</span>
-                </div>
-
-                {/* Comments Preview - Only show if there are comments */}
-                {commentCount > 0 && (
-                  <>
-                    <button 
-                      onClick={() => setOpenCommentsPostId(post._id)}
-                      className="text-sm text-gray-500 mb-2"
-                    >
-                      View all {commentCount} comments
-                    </button>
-                    {/* Show first 2 comments */}
-                    {post.comments && post.comments.slice(0, 2).map((comment) => (
-                      <div key={comment._id || comment.createdAt} className="text-sm text-gray-900 mb-1">
-                        <span className="font-semibold mr-2">{comment.userId?.name || 'User'}</span>
-                        <span>{comment.text}</span>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* Time Posted */}
-                <div className="text-xs text-gray-400 mt-2">
-                  {formatTimeAgo(post.createdAt)}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span>Terms</span>
+                    <span>Locations</span>
+                    <span>Language</span>
+                    <span>Meta Verified</span>
+                  </div>
+                  <div className="mt-4">
+                    <span>© 2024 Instagram Clone</span>
+                  </div>
                 </div>
               </div>
             </div>
-          );
-        })}
-      </div>
-
-      {/* ✅ ADD: Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-6 mx-4 max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-4">Delete Post?</h3>
-            <p className="text-gray-600 mb-6">
-              This post will be deleted permanently and can't be recovered.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeletePost(showDeleteConfirm)}
-                disabled={deleting}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <DeleteModal 
+        showDeleteConfirm={showDeleteConfirm}
+        setShowDeleteConfirm={setShowDeleteConfirm}
+        handleDeletePost={handleDeletePost}
+        deleting={deleting}
+      />
 
       {/* Comments Modal */}
-      {openPost && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end">
-          <div className="bg-white w-full h-5/6 rounded-t-3xl overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <button 
-                onClick={() => setOpenCommentsPostId(null)}
-                className="p-1"
-              >
-                <IoArrowBack size={24} className="text-gray-600" />
-              </button>
-              <span className="font-semibold text-gray-900">Comments</span>
-              <div className="w-6"></div>
-            </div>
-
-            {/* Comments List */}
-            <div className="flex-1 overflow-y-auto px-4">
-              {(!openPost.comments || openPost.comments.length === 0) ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                  <div className="text-gray-400 text-lg mb-2">No comments yet</div>
-                  <div className="text-gray-500 text-sm">Start the conversation.</div>
-                </div>
-              ) : (
-                <div className="py-4 space-y-4">
-                  {openPost.comments
-                    .filter(c => !deletedComments[c._id])
-                    .map((comment) => {
-                      const key = comment._id || comment.createdAt;
-                      const offset = swipeState[key] || 0;
-                      const commentUser = comment.userId || {};
-                      const commentAvatar = generateAvatar(commentUser);
-                      
-                      return (
-                        <div key={key} className="relative overflow-hidden">
-                          {/* Swipe backgrounds - Only show if user can edit/delete */}
-                          {token && comment._id && (
-                            <div className="absolute inset-0 pointer-events-none">
-                              <div className="absolute inset-y-0 left-0 w-1/2 bg-blue-50 flex items-center pl-4">
-                                <div className="flex items-center gap-2 text-blue-600">
-                                  <span className="text-sm font-medium">Edit</span>
-                                </div>
-                              </div>
-                              <div className="absolute inset-y-0 right-0 w-1/2 bg-red-50 flex items-center justify-end pr-4">
-                                <div className="flex items-center gap-2 text-red-500">
-                                  <span className="text-sm font-medium">Delete</span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Comment Content */}
-                          <div
-                            className="flex items-start space-x-3 bg-white py-3 transition-transform duration-150"
-                            style={{ transform: `translateX(${offset}px)` }}
-                            onTouchStart={(e) => {
-                              if (!token || !comment._id) return;
-                              
-                              const startX = e.touches.clientX;
-                              const startOffset = swipeState[key] || 0;
-                              let currentDx = 0;
-                              
-                              const move = (ev) => {
-                                const dx = ev.touches.clientX - startX;
-                                currentDx = dx;
-                                let next = startOffset + dx;
-                                next = Math.max(-140, Math.min(140, next));
-                                setSwipeState((s) => ({ ...s, [key]: next }));
-                              };
-                              
-                              const end = () => {
-                                const final = startOffset + currentDx;
-                                if (final >= 90 && comment._id) {
-                                  setDeletedComments((m) => ({ ...m, [comment._id]: true }));
-                                  dispatch(deleteComment({
-                                    postId: openPost._id,
-                                    commentId: comment._id
-                                  }))
-                                    .unwrap()
-                                    .then(() => showToast("Comment deleted", "success"))
-                                    .catch((err) => {
-                                      showToast(err?.message || 'Not authorized to delete this comment', 'error');
-                                      setDeletedComments((m) => {
-                                        const n = { ...m };
-                                        delete n[comment._id];
-                                        return n;
-                                      });
-                                    });
-                                } else if (final <= -90 && comment._id) {
-                                  setEditing({ commentId: comment._id, text: comment.text });
-                                }
-                                setSwipeState((s) => ({ ...s, [key]: 0 }));
-                                window.removeEventListener('touchmove', move);
-                                window.removeEventListener('touchend', end);
-                              };
-                              
-                              window.addEventListener('touchmove', move, { passive: true });
-                              window.addEventListener('touchend', end);
-                            }}
-                          >
-                            <div className={`w-8 h-8 bg-gradient-to-r ${commentAvatar.color} rounded-full flex items-center justify-center flex-shrink-0`}>
-                              <span className="text-white font-semibold text-xs">
-                                {commentAvatar.initials}
-                              </span>
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className="font-semibold text-sm text-gray-900">
-                                  {commentUser.name || 'User'}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {formatTimeAgo(comment.createdAt)}
-                                </span>
-                              </div>
-                              
-                              {editing?.commentId === comment._id ? (
-                                <form
-                                  className="flex items-center space-x-2 mt-1"
-                                  onSubmit={(e) => {
-                                    e.preventDefault();
-                                    const text = editing.text.trim();
-                                    if (!text) return;
-                                    
-                                    dispatch(editComment({ 
-                                      postId: openPost._id, 
-                                      commentId: comment._id, 
-                                      text 
-                                    }))
-                                      .unwrap()
-                                      .then(() => {
-                                        showToast("Comment updated", "success");
-                                        setEditing(null);
-                                      })
-                                      .catch((err) => {
-                                        showToast(err?.message || 'Not authorized to edit this comment', 'error');
-                                      });
-                                  }}
-                                >
-                                  <input
-                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    value={editing.text}
-                                    onChange={(e) => setEditing({ ...editing, text: e.target.value })}
-                                    autoFocus
-                                  />
-                                  <button 
-                                    type="button" 
-                                    onClick={() => setEditing(null)}
-                                    className="text-sm text-gray-500 px-2"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button 
-                                    type="submit" 
-                                    className="text-sm text-blue-600 font-medium px-2"
-                                  >
-                                    Save
-                                  </button>
-                                </form>
-                              ) : (
-                                <div className="text-sm text-gray-900">{comment.text}</div>
-                              )}
-                            </div>
-                            
-                            <button className="text-gray-400 hover:text-red-500 p-1">
-                              <IoHeartOutline size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-
-            {/* Add Comment Form - Only show if user is logged in */}
-            {token && userInfo && (
-              <div className="border-t border-gray-200 p-4">
-                <form
-                  className="flex items-center space-x-3"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const text = modalText.trim();
-                    if (!text) return;
-                    
-                    dispatch(addComment({ postId: openPost._id, text }))
-                      .unwrap()
-                      .then(() => {
-                        setModalText("");
-                        showToast("Comment added", "success");
-                      })
-                      .catch((err) => {
-                        showToast("Failed to add comment", "error");
-                      });
-                  }}
-                >
-                  <div className={`w-8 h-8 bg-gradient-to-r ${generateAvatar(userInfo).color} rounded-full flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-white font-semibold text-xs">
-                      {generateAvatar(userInfo).initials}
-                    </span>
-                  </div>
-                  
-                  <input
-                    type="text"
-                    placeholder="Add a comment..."
-                    className="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={modalText}
-                    onChange={(e) => setModalText(e.target.value)}
-                  />
-                  
-                  <button 
-                    type="submit" 
-                    disabled={!modalText.trim()}
-                    className="disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <IoSend 
-                      size={20} 
-                      className={modalText.trim() ? 'text-blue-500' : 'text-gray-400'} 
-                    />
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* Login prompt if not logged in */}
-            {!token && (
-              <div className="border-t border-gray-200 p-4 text-center">
-                <p className="text-gray-500 text-sm">Please login to add comments</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <CommentsModal 
+        openPost={openPost}
+        setOpenCommentsPostId={setOpenCommentsPostId}
+        token={token}
+        userInfo={userInfo}
+        generateAvatar={generateAvatar}
+        modalText={modalText}
+        setModalText={setModalText}
+        dispatch={dispatch}
+        addComment={addComment}
+        deleteComment={deleteComment}
+        editComment={editComment}
+        showToast={showToast}
+        swipeState={swipeState}
+        setSwipeState={setSwipeState}
+        editing={editing}
+        setEditing={setEditing}
+        deletedComments={deletedComments}
+        setDeletedComments={setDeletedComments}
+        formatTimeAgo={formatTimeAgo}
+      />
 
       {/* Toast Notifications */}
-      {toast && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className={`px-4 py-2 rounded-lg shadow-lg text-white text-sm font-medium flex items-center space-x-2 ${
-            toast.type === 'error' ? 'bg-red-500' : 
-            toast.type === 'success' ? 'bg-green-500' : 'bg-blue-500'
-          }`}>
-            <span>{toast.message}</span>
-            <button 
-              onClick={() => setToast(null)}
-              className="ml-2 text-white hover:text-gray-200"
-            >
-              <IoClose size={16} />
-            </button>
-          </div>
-        </div>
-      )}
+      <Toast 
+        toast={toast}
+        setToast={setToast}
+      />
 
-      <BottomNav />
-      
-      <style jsx>{`
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
+      {/* Bottom Navigation - Only show on mobile */}
+      <div className="lg:hidden">
+        <BottomNav />
+      </div>
     </div>
   );
 };
