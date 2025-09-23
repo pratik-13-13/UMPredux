@@ -6,7 +6,7 @@ import storyReducer from "./Slices/storySlice.js"
 import followReducer from './Slices/followSlice.js';
 
 
-const Store = configureStore({
+const store = configureStore({
     reducer : {
         user: userSlice,
         posts: postSlice,
@@ -15,4 +15,4 @@ const Store = configureStore({
     }
 })
 
-export default Store
+export default store
