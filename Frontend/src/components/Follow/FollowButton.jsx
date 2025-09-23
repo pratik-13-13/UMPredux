@@ -11,14 +11,16 @@ const FollowButton = ({
   userId, 
   variant = 'default', 
   showUnfollowModal = false,
-  className = '' 
+  className = '',
+  onFollowChange
 }) => {
   const dispatch = useDispatch();
-  const { followStatuses, loading } = useSelector(state => state.follow);
+  const { followStatuses, followLoading } = useSelector(state => state.follow);
   const { userInfo } = useSelector(state => state.user);
   const [showConfirm, setShowConfirm] = useState(false);
   
   const status = followStatuses[userId] || 'follow';
+  const loading = followLoading[userId] || false;
 
   useEffect(() => {
     if (userId && userId !== userInfo?._id) {
@@ -28,27 +30,44 @@ const FollowButton = ({
 
   if (!userId || userId === userInfo?._id) return null;
 
-  const handleClick = () => {
+  const handleClick = async () => {
+
+     console.log('Follow button clicked, current status:', status);
+     
     if (status === 'following' && showUnfollowModal) {
       setShowConfirm(true);
       return;
     }
 
-    if (status === 'follow') {
-      dispatch(sendFollowRequest(userId));
-    } else if (status === 'requested') {
-      dispatch(cancelFollowRequest(userId));
-    } else if (status === 'following') {
-      dispatch(unfollowUser(userId));
+    try {
+      if (status === 'follow') {
+        // ALWAYS send request (not direct follow)
+        await dispatch(sendFollowRequest(userId)).unwrap();
+        onFollowChange?.(1);
+      } else if (status === 'requested') {
+        await dispatch(cancelFollowRequest(userId)).unwrap();
+        onFollowChange?.(-1);
+      } else if (status === 'following') {
+        await dispatch(unfollowUser(userId)).unwrap();
+        onFollowChange?.(-1);
+      }
+    } catch (error) {
+      console.error('Follow action error:', error);
     }
   };
 
-  const handleUnfollow = () => {
-    dispatch(unfollowUser(userId));
-    setShowConfirm(false);
+  const handleUnfollow = async () => {
+    try {
+      await dispatch(unfollowUser(userId)).unwrap();
+      setShowConfirm(false);
+      onFollowChange?.(-1);
+    } catch (error) {
+      console.error('Unfollow error:', error);
+    }
   };
 
   const getButtonText = () => {
+    if (loading) return 'Loading...';
     switch (status) {
       case 'following': return variant === 'small' ? 'Following' : 'Following';
       case 'requested': return variant === 'small' ? 'Requested' : 'Requested';
@@ -78,7 +97,7 @@ const FollowButton = ({
         disabled={loading}
         className={getButtonStyle()}
       >
-        {loading ? 'Loading...' : getButtonText()}
+        {getButtonText()}
       </button>
 
       {/* Unfollow Confirmation Modal */}

@@ -1,6 +1,7 @@
 const {User} = require('../models/User');
 
 // Follow a user (existing - keep as is)
+
 const followUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -24,21 +25,28 @@ const followUser = async (req, res) => {
       return res.status(400).json({ message: "Already following this user" });
     }
 
-    // Add to following and followers lists
-    currentUser.following.push(userId);
-    currentUser.followingCount += 1;
-    
-    userToFollow.followers.push(currentUserId);
-    userToFollow.followerCount += 1;
+    // Initialize arrays if they don't exist
+    if (!userToFollow.followRequests) userToFollow.followRequests = [];
+    if (!currentUser.sentRequests) currentUser.sentRequests = [];
 
-    // Save both users
-    await currentUser.save();
-    await userToFollow.save();
+    // Check if request already sent
+    const alreadySent = userToFollow.followRequests.some(req => req.user.toString() === currentUserId.toString());
+    if (alreadySent) {
+      return res.status(400).json({ message: "Follow request already sent", status: "requested" });
+    }
+
+    // ALWAYS SEND REQUEST (Instagram style - even for public accounts)
+    userToFollow.followRequests.push({ user: currentUserId });
+    currentUser.sentRequests.push({ user: userId });
+    
+    await Promise.all([
+      userToFollow.save(),
+      currentUser.save()
+    ]);
 
     res.status(200).json({ 
-      message: "User followed successfully",
-      followingCount: currentUser.followingCount,
-      followerCount: userToFollow.followerCount
+      message: "Follow request sent",
+      status: "requested"
     });
 
   } catch (error) {
@@ -46,6 +54,7 @@ const followUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // Unfollow a user (existing - keep as is)
 const unfollowUser = async (req, res) => {
@@ -94,63 +103,72 @@ const sendFollowRequest = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user._id;
-
+    
     if (userId === currentUserId.toString()) {
       return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
     const targetUser = await User.findById(userId);
-    if (!targetUser) {
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser || !currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const currentUser = await User.findById(currentUserId);
+    // Initialize arrays if they don't exist
+    if (!targetUser.followRequests) {
+      targetUser.followRequests = [];
+    }
+    if (!currentUser.sentRequests) {
+      currentUser.sentRequests = [];
+    }
 
     // Check if already following
-    if (currentUser.following.includes(userId)) {
+    if (currentUser.following && currentUser.following.includes(userId)) {
       return res.status(400).json({ message: "Already following this user" });
     }
 
     // Check if request already sent
-    const alreadySent = targetUser.followRequests && targetUser.followRequests.some(req => req.user.toString() === currentUserId.toString());
+    const alreadySent = targetUser.followRequests.some(req => 
+      req.user.toString() === currentUserId.toString()
+    );
+    
     if (alreadySent) {
-      return res.status(400).json({ message: "Follow request already sent" });
+      return res.status(400).json({ 
+        message: "Follow request already sent", 
+        status: "requested" 
+      });
     }
 
-    if (targetUser.isPrivate) {
-      // Private account - send request
-      if (!targetUser.followRequests) targetUser.followRequests = [];
-      if (!currentUser.sentRequests) currentUser.sentRequests = [];
-      
-      targetUser.followRequests.push({ user: currentUserId });
-      currentUser.sentRequests.push({ user: userId });
-      
-      await Promise.all([
-        targetUser.save(),
-        currentUser.save()
-      ]);
+    // Add follow request with current date
+    const requestData = {
+      user: currentUserId,
+      createdAt: new Date()
+    };
 
-      res.json({ message: "Follow request sent", status: "requested" });
-    } else {
-      // Public account - follow directly
-      currentUser.following.push(userId);
-      currentUser.followingCount = (currentUser.followingCount || 0) + 1;
-      
-      targetUser.followers.push(currentUserId);
-      targetUser.followerCount = (targetUser.followerCount || 0) + 1;
+    targetUser.followRequests.push(requestData);
+    currentUser.sentRequests.push({
+      user: userId,
+      createdAt: new Date()
+    });
 
-      await Promise.all([
-        targetUser.save(),
-        currentUser.save()
-      ]);
+    // Save both users
+    await targetUser.save();
+    await currentUser.save();
 
-      res.json({ message: "Now following", status: "following" });
-    }
+    res.json({ 
+      message: "Follow request sent", 
+      status: "requested",
+      userId: userId
+    });
+
   } catch (error) {
     console.error('Send follow request error:', error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 // NEW: Accept follow request
 
@@ -295,17 +313,28 @@ const cancelFollowRequest = async (req, res) => {
 const getFollowRequests = async (req, res) => {
   try {
     const currentUserId = req.user._id;
+   
     
     const user = await User.findById(currentUserId)
-      .populate('followRequests.user', 'name email profilePicture')
-      .select('followRequests');
+      .populate({
+        path: 'followRequests.user',
+        select: 'name email profilePicture'
+      })
+      .select('followRequests name');
+    const requests = user?.followRequests || [];
+    
+    res.json({ 
+      requests: requests,
+      count: requests.length,
+      userName: user?.name
+    });
 
-    res.json({ requests: user.followRequests || [] });
   } catch (error) {
     console.error('Get follow requests error:', error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // Get followers list (existing - keep as is)
 const getFollowers = async (req, res) => {

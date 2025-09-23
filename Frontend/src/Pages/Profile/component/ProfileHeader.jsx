@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import FollowersFollowingModal from '../../../components/Modals/FollowersFollowingModal.jsx';
 
 const ProfileHeader = ({ 
   user, 
@@ -12,20 +13,15 @@ const ProfileHeader = ({
 }) => {
   const navigate = useNavigate();
   const [showShareModal, setShowShareModal] = useState(false);
+  
+  // NEW: Single modal with different initial tabs
+  const [showFollowModal, setShowFollowModal] = useState(false);
+  const [initialTab, setInitialTab] = useState('followers');
 
   const formatCount = (count) => {
     if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
     if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
     return count.toString();
-  };
-
-  // FIX: Add the missing functions
-  const handleFollowersClick = () => {
-    navigate(`/followers/${user._id}`);
-  };
-
-  const handleFollowingClick = () => {
-    navigate(`/following/${user._id}`);
   };
 
   const handleShareProfile = () => {
@@ -36,7 +32,6 @@ const ProfileHeader = ({
         url: window.location.href,
       });
     } else {
-      // Fallback - copy to clipboard
       navigator.clipboard.writeText(window.location.href);
       setShowShareModal(true);
       setTimeout(() => setShowShareModal(false), 2000);
@@ -45,6 +40,17 @@ const ProfileHeader = ({
 
   const handleAddToStory = () => {
     navigate('/create-story');
+  };
+
+  // NEW: Combined modal handlers
+  const handleFollowersClick = () => {
+    setInitialTab('followers');
+    setShowFollowModal(true);
+  };
+
+  const handleFollowingClick = () => {
+    setInitialTab('following');
+    setShowFollowModal(true);
   };
 
   return (
@@ -62,7 +68,6 @@ const ProfileHeader = ({
                 </div>
               </div>
             </div>
-            {/* Add story plus icon */}
             <button
               onClick={handleAddToStory}
               className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white hover:bg-blue-600 transition-colors"
@@ -94,7 +99,7 @@ const ProfileHeader = ({
           </div>
         </div>
         
-        {/* Username and Bio */}
+        {/* Rest of your existing mobile layout... */}
         <div className="mt-3">
           <h1 className="text-sm font-semibold text-gray-900">{user.username || user.name}</h1>
           <div className="mt-1 text-sm text-gray-700">
@@ -104,7 +109,6 @@ const ProfileHeader = ({
           </div>
         </div>
         
-        {/* Action Buttons - Moved below like Instagram */}
         <div className="flex gap-2 mt-3">
           {!isEditing && (
             <>
@@ -129,7 +133,6 @@ const ProfileHeader = ({
           )}
         </div>
         
-        {/* Story Highlights */}
         <div className="flex gap-4 mt-4 overflow-x-auto scrollbar-hide">
           <button
             onClick={handleAddToStory}
@@ -140,23 +143,13 @@ const ProfileHeader = ({
             </div>
             <span className="text-xs text-gray-600 mt-1">New</span>
           </button>
-          
-          {/* Example highlight circles */}
-          <div className="flex flex-col items-center min-w-0">
-            <div className="w-16 h-16 rounded-full border-2 border-gray-300 overflow-hidden bg-gradient-to-tr from-purple-400 to-pink-400">
-              <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
-                {avatar}
-              </div>
-            </div>
-            <span className="text-xs text-gray-600 mt-1">Highlights</span>
-          </div>
         </div>
       </div>
 
       {/* Desktop Layout */}
       <div className="hidden md:block px-8 py-8">
+        {/* Your existing desktop layout with updated click handlers */}
         <div className="flex items-start">
-          {/* Profile Picture */}
           <div className="relative mr-12">
             <div className="w-36 h-36 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-1">
               <div className="w-full h-full rounded-full bg-white p-1">
@@ -165,7 +158,6 @@ const ProfileHeader = ({
                 </div>
               </div>
             </div>
-            {/* Desktop add story plus icon */}
             <button
               onClick={handleAddToStory}
               className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white hover:bg-blue-600 transition-colors"
@@ -174,9 +166,7 @@ const ProfileHeader = ({
             </button>
           </div>
           
-          {/* Profile Info */}
           <div className="flex-1">
-            {/* Username and Buttons */}
             <div className="flex items-center mb-6">
               <h1 className="text-2xl font-light mr-8">{user.username || user.name}</h1>
               
@@ -203,7 +193,6 @@ const ProfileHeader = ({
               )}
             </div>
             
-            {/* Stats */}
             <div className="flex gap-12 mb-6">
               <div className="flex items-center">
                 <span className="font-semibold text-lg mr-1">{formatCount(postsCount)}</span>
@@ -225,7 +214,6 @@ const ProfileHeader = ({
               </button>
             </div>
             
-            {/* Bio */}
             <div className="text-sm">
               <p className="font-semibold text-gray-900">{user.fullName || user.name}</p>
               {user.bio && <p className="text-gray-700 mt-1 whitespace-pre-wrap">{user.bio}</p>}
@@ -234,7 +222,6 @@ const ProfileHeader = ({
           </div>
         </div>
         
-        {/* Story Highlights - Desktop */}
         <div className="flex gap-6 mt-8 overflow-x-auto scrollbar-hide">
           <button
             onClick={handleAddToStory}
@@ -245,16 +232,6 @@ const ProfileHeader = ({
             </div>
             <span className="text-xs text-gray-600 mt-2">New</span>
           </button>
-          
-          {/* Example highlight circles */}
-          <div className="flex flex-col items-center min-w-0">
-            <div className="w-20 h-20 rounded-full border-2 border-gray-300 overflow-hidden bg-gradient-to-tr from-purple-400 to-pink-400">
-              <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
-                {avatar}
-              </div>
-            </div>
-            <span className="text-xs text-gray-600 mt-2">Highlights</span>
-          </div>
         </div>
       </div>
 
@@ -266,6 +243,15 @@ const ProfileHeader = ({
           </div>
         </div>
       )}
+
+      {/* NEW: Single Combined Modal */}
+      <FollowersFollowingModal 
+        isOpen={showFollowModal}
+        onClose={() => setShowFollowModal(false)}
+        userId={user._id}
+        userName={user.name}
+        initialTab={initialTab}
+      />
     </div>
   );
 };

@@ -10,13 +10,13 @@ const Header = () => {
   const { followRequests } = useSelector(state => state.follow);
   
   useEffect(() => {
-    // Fetch follow requests when component mounts
+    // Initial fetch
     dispatch(getFollowRequests());
     
-    // Fetch every 30 seconds for real-time updates
+    // Real-time updates every 10 seconds
     const interval = setInterval(() => {
       dispatch(getFollowRequests());
-    }, 30000);
+    }, 10000);  
     
     return () => clearInterval(interval);
   }, [dispatch]);
@@ -41,7 +41,7 @@ const Header = () => {
           >
             <IoHeartOutline size={24} className="text-gray-800" />
             {requestCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
                 <span className="text-white text-xs font-bold">
                   {requestCount > 9 ? '9+' : requestCount}
                 </span>

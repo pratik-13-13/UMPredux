@@ -58,7 +58,9 @@ export const unfollowUser = createAsyncThunk(
   }
 );
 
-// NEW: Send follow request
+// Send follow request
+
+// NEW: Send follow request (UPDATED)
 export const sendFollowRequest = createAsyncThunk(
   'follow/sendFollowRequest',
   async (userId, { rejectWithValue }) => {
@@ -68,8 +70,9 @@ export const sendFollowRequest = createAsyncThunk(
         return rejectWithValue('No authentication token found');
       }
       
+      // Use /request/ endpoint instead of /follow/
       const response = await axios.post(
-        `${API_URL}/request/${userId}`,
+        `${API_URL}/request/${userId}`,  // This should send request
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -81,6 +84,7 @@ export const sendFollowRequest = createAsyncThunk(
     }
   }
 );
+
 
 // NEW: Accept follow request
 export const acceptFollowRequest = createAsyncThunk(

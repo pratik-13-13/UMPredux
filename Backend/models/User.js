@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
   },
   isPrivate: {
     type: Boolean,
-    default: false
+    default: true
   },
   
   // Additional Instagram-like features
@@ -51,7 +51,8 @@ const userSchema = new mongoose.Schema({
   followRequests: [{
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+     required: true
   },
   createdAt: {
     type: Date,
@@ -62,7 +63,8 @@ const userSchema = new mongoose.Schema({
   sentRequests: [{
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: 'User',
+     required: true
   },
   createdAt: {
     type: Date,
