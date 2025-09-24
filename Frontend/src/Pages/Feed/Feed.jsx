@@ -8,7 +8,7 @@ import BottomNav from "../../components/Layout/BottomNav/BottomNav.jsx";
 
 // Import all separated components
 import Header from "./components/Header.jsx";
-import StoriesSection from "./Components/StoriesSection.jsx";
+import StoriesSection from "./components/StoriesSection.jsx";
 import PostCard from "./Components/PostCard.jsx";
 import CommentsModal from "./components/CommentsModal.jsx";
 import DeleteModal from "./components/DeleteModal.jsx";
