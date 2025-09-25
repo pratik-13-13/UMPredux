@@ -1,7 +1,6 @@
 const {User} = require('../models/User');
 
 // Follow a user (existing - keep as is)
-
 const followUser = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -55,7 +54,6 @@ const followUser = async (req, res) => {
   }
 };
 
-
 // Unfollow a user (existing - keep as is)
 const unfollowUser = async (req, res) => {
   try {
@@ -98,13 +96,33 @@ const unfollowUser = async (req, res) => {
   }
 };
 
-// NEW: Send follow request
+// ✅ FIXED: Send follow request (ONLY this function was broken)
 const sendFollowRequest = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user._id;
 
-    // Your existing follow request logic...
+    // ✅ FIXED: Properly define and find the users
+    const targetUser = await User.findById(userId);
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Initialize arrays if they don't exist
+    if (!targetUser.followRequests) targetUser.followRequests = [];
+    if (!currentUser.sentRequests) currentUser.sentRequests = [];
+
+    // Check if request already sent
+    const alreadySent = targetUser.followRequests.some(req => req.user.toString() === currentUserId.toString());
+    if (alreadySent) {
+      return res.status(400).json({ message: "Follow request already sent", status: "requested" });
+    }
+
+    // Add follow request
+    targetUser.followRequests.push({ user: currentUserId });
+    currentUser.sentRequests.push({ user: userId });
     
     await Promise.all([
       targetUser.save(),
@@ -112,15 +130,17 @@ const sendFollowRequest = async (req, res) => {
     ]);
 
     // Emit WebSocket event (clean way)
-    req.io.to(userId).emit('newFollowRequest', {
-      from: {
-        _id: currentUserId,
-        name: currentUser.name,
-        email: currentUser.email
-      },
-      message: `${currentUser.name} sent you a follow request`,
-      timestamp: new Date()
-    });
+    if (req.io) {
+      req.io.to(userId).emit('newFollowRequest', {
+        from: {
+          _id: currentUserId,
+          name: currentUser.name,
+          email: currentUser.email
+        },
+        message: `${currentUser.name} sent you a follow request`,
+        timestamp: new Date()
+      });
+    }
 
     res.json({ message: "Follow request sent", status: "requested" });
   } catch (error) {
@@ -129,11 +149,7 @@ const sendFollowRequest = async (req, res) => {
   }
 };
 
-
-
-
 // NEW: Accept follow request
-
 const acceptFollowRequest = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -187,7 +203,6 @@ const acceptFollowRequest = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // NEW: Reject follow request
 const rejectFollowRequest = async (req, res) => {
@@ -276,7 +291,6 @@ const getFollowRequests = async (req, res) => {
   try {
     const currentUserId = req.user._id;
    
-    
     const user = await User.findById(currentUserId)
       .populate({
         path: 'followRequests.user',
@@ -296,7 +310,6 @@ const getFollowRequests = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 // Get followers list (existing - keep as is)
 const getFollowers = async (req, res) => {
