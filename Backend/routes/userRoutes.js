@@ -10,12 +10,14 @@ const {
     deleteUser,
     registerUser,
     loginUser,
-    getCurrentUser
+    getCurrentUser,
+    searchUsers
 } = require('../controllers/userController.js');
 
 // Public routes (no authentication required)
 router.post('/register', registerUser);
 router.post('/login', loginUser);
+router.get('/search', authenticateToken, searchUsers);
 
 // Protected routes (authentication required)
 router.get('/profile', authenticateToken, getCurrentUser);

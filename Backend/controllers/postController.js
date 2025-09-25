@@ -6,42 +6,42 @@ const { User } = require('../models/User.js');
 const createPost = async (req, res) => {
   try {
     const { content } = req.body;
+    const userId = req.user._id;
 
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: 'Content is required' });
-    }
-
+    // Create proper web-accessible URL for image
     let imageUrl = null;
-
-    // If image was uploaded via multer
     if (req.file) {
-      if (req.file.path) {
-        // Cloudinary URL
-        imageUrl = req.file.path;
-      } else {
-        // Memory storage - for now just indicate file was received
-        imageUrl = `File uploaded: ${req.file.originalname}`;
-        console.log('File received but no cloud storage configured');
-      }
-    }
-    // If image URL was provided directly
-    else if (req.body.image) {
-      imageUrl = req.body.image;
+      imageUrl = `${req.protocol}://${req.get('host')}/uploads/posts/${req.file.filename}`;
     }
 
-    const post = await Post.create({
-      userId: req.user._id,
-      content: content.trim(),
+    const post = new Post({
+      userId,
+      content,
       image: imageUrl,
+      likes: [],
+      comments: []
     });
 
-    const populated = await post.populate({ path: 'userId', select: 'name email' });
-    return res.status(201).json(populated);
+    await post.save();
+    
+    // Populate user info for response
+    await post.populate('userId', 'name email profilePicture');
+
+    res.status(201).json(post);
+
   } catch (error) {
-    console.error('Create post error:', error);
-    return res.status(500).json({ error: 'Server error: ' + error.message }); // Show actual error
+    // ✅ FIX: Proper error logging
+    console.error('Create post error:', error.message);
+    console.error('Full error:', error);
+    
+    // ✅ FIX: Send proper error response
+    res.status(500).json({ 
+      message: 'Failed to create post',
+      error: error.message 
+    });
   }
 };
+
 
 
 // Delete post 
@@ -64,7 +64,7 @@ const deletePost = async (req, res) => {
     // Delete the post
     await Post.findByIdAndDelete(postId);
     
-    console.log(`Post deleted successfully: ${postId} by user ${req.user._id}`);
+    
     
     return res.json({ 
       message: 'Post deleted successfully',

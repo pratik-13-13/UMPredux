@@ -145,6 +145,53 @@ const getCurrentUser = async (req, res) => {
   }
 };
 
+const searchUsers = async (req, res) => {
+  try {
+    // ✅ FIXED: Handle both 'q' and 'query' parameters
+    const searchParam = req.query.q || req.query.query;
+    
+ 
+    
+    // Validation
+    if (!searchParam || searchParam.trim().length < 1) {
+      return res.json([]);
+    }
+
+    const searchTerm = searchParam.trim();
+    
+    // ✅ FIXED: Handle different user ID formats from token
+    const currentUserId = req.user._id || req.user.userId || req.user.id;
+    
+   
+    
+    // Search users excluding current user
+    const users = await User.find({
+      $and: [
+        { _id: { $ne: currentUserId } }, // Exclude current user
+        {
+          $or: [
+            { name: { $regex: searchTerm, $options: 'i' } },
+            { email: { $regex: searchTerm, $options: 'i' } },
+            { username: { $regex: searchTerm, $options: 'i' } } // Added username search
+          ]
+        }
+      ]
+    })
+    .select('name email username profilePic bio isVerified')
+    .limit(20);
+    res.json(users);
+
+  } catch (error) {
+    console.error('❌ User search error:', error.message);
+    console.error('❌ Full error:', error);
+    res.status(500).json({ 
+      message: 'Failed to search users',
+      error: error.message 
+    });
+  }
+};
+
+
 module.exports = {
   getUsers,
   getUserById,
@@ -154,6 +201,7 @@ module.exports = {
   registerUser,
   loginUser,
   getCurrentUser,
+  searchUsers,
 };
 
 

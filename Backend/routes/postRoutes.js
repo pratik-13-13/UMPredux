@@ -13,6 +13,11 @@ const {
 
 } = require('../controllers/postController.js');
 
+router.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Get all posts (public)
 router.get('/', getAllPosts);
 

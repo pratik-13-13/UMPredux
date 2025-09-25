@@ -103,70 +103,32 @@ const sendFollowRequest = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user._id;
+
+    // Your existing follow request logic...
     
-    if (userId === currentUserId.toString()) {
-      return res.status(400).json({ message: "You cannot follow yourself" });
-    }
+    await Promise.all([
+      targetUser.save(),
+      currentUser.save()
+    ]);
 
-    const targetUser = await User.findById(userId);
-    const currentUser = await User.findById(currentUserId);
-
-    if (!targetUser || !currentUser) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Initialize arrays if they don't exist
-    if (!targetUser.followRequests) {
-      targetUser.followRequests = [];
-    }
-    if (!currentUser.sentRequests) {
-      currentUser.sentRequests = [];
-    }
-
-    // Check if already following
-    if (currentUser.following && currentUser.following.includes(userId)) {
-      return res.status(400).json({ message: "Already following this user" });
-    }
-
-    // Check if request already sent
-    const alreadySent = targetUser.followRequests.some(req => 
-      req.user.toString() === currentUserId.toString()
-    );
-    
-    if (alreadySent) {
-      return res.status(400).json({ 
-        message: "Follow request already sent", 
-        status: "requested" 
-      });
-    }
-
-    // Add follow request with current date
-    const requestData = {
-      user: currentUserId,
-      createdAt: new Date()
-    };
-
-    targetUser.followRequests.push(requestData);
-    currentUser.sentRequests.push({
-      user: userId,
-      createdAt: new Date()
+    // Emit WebSocket event (clean way)
+    req.io.to(userId).emit('newFollowRequest', {
+      from: {
+        _id: currentUserId,
+        name: currentUser.name,
+        email: currentUser.email
+      },
+      message: `${currentUser.name} sent you a follow request`,
+      timestamp: new Date()
     });
 
-    // Save both users
-    await targetUser.save();
-    await currentUser.save();
-
-    res.json({ 
-      message: "Follow request sent", 
-      status: "requested",
-      userId: userId
-    });
-
+    res.json({ message: "Follow request sent", status: "requested" });
   } catch (error) {
     console.error('Send follow request error:', error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 

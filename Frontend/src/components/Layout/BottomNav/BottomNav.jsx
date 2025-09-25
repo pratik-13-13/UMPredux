@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { IoPaperPlaneOutline } from 'react-icons/io5';
 
 const Tab = ({ to, children, label, isSidebar = false }) => (
   <NavLink
@@ -56,6 +57,11 @@ const BottomNav = () => {
         </svg>
       )
     },
+    //  {
+    //   to: "/chat", 
+    //   label: "Messages",
+    //   icon: <IoPaperPlaneOutline className="w-6 h-6" />
+    // },
     {
       to: "/reels",
       label: "Reels",

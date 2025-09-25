@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { IoPaperPlaneOutline, IoHeartOutline } from "react-icons/io5";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -10,21 +10,20 @@ const Header = () => {
   const { followRequests } = useSelector(state => state.follow);
   
   useEffect(() => {
-    // Initial fetch
+    // ✅ ONLY fetch once on component mount - NO MORE POLLING!
     dispatch(getFollowRequests());
-    
-    // Real-time updates every 10 seconds
-    const interval = setInterval(() => {
-      dispatch(getFollowRequests());
-    }, 10000);  
-    
-    return () => clearInterval(interval);
   }, [dispatch]);
 
   const requestCount = followRequests?.length || 0;
 
   const handleNotificationClick = () => {
     navigate('/follow-requests');
+  };
+
+  
+  //Handle messages click
+  const handleMessagesClick = () => {
+    navigate('/chat');
   };
 
   return (
@@ -34,7 +33,7 @@ const Header = () => {
           Instagram
         </h1>
         <div className="flex items-center space-x-4">
-          {/* Heart Icon with Notification Badge */}
+          {/* Heart Icon with Real-time Notification Badge */}
           <button 
             onClick={handleNotificationClick}
             className="relative p-1"
@@ -49,7 +48,11 @@ const Header = () => {
             )}
           </button>
           
-          <button>
+          <button 
+           onClick={handleMessagesClick}
+            className="relative p-1"
+            >
+            
             <IoPaperPlaneOutline size={24} className="text-gray-800" />
           </button>
         </div>
