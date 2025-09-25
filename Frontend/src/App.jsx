@@ -20,7 +20,7 @@ import FollowRequests from './Pages/FollowRequests/FollowRequests.jsx';
 import FollowersPage from "./Pages/Followers/FollowersPage.jsx";
 import FollowingPage from './Pages/Following/FollowingPage.jsx';
 import useSocket from './Hooks/useSocket.js';
-import './components/UI/Notifications/NotificationStyles.css';
+//import './components/UI/Notifications/NotificationStyles.css';
 import ChatList from './Pages/Chat/ChatList.jsx';
 import ChatWindow from './Pages/Chat/ChatWindow.jsx';
 import NewChat from './Pages/Chat/NewChat.jsx';
