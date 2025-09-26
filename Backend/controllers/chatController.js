@@ -136,14 +136,15 @@ const getChatMessages = async (req, res) => {
       { $addToSet: { readBy: { userId: req.user._id, readAt: new Date() } } }
     );
 
-    console.log(`💬 Fetched ${messages.length} messages for chat ${chatId}`);
+    console.log(` Fetched ${messages.length} messages for chat ${chatId}`);
     res.json(messages.reverse());
   } catch (error) {
-    console.error('❌ Get messages error:', error);
+    console.error(' Get messages error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
+// Send message
 // Send message
 const sendMessage = async (req, res) => {
   try {
@@ -151,9 +152,9 @@ const sendMessage = async (req, res) => {
     const { content, messageType = 'text' } = req.body;
     const senderId = req.user._id;
 
-    console.log('📤 Received payload:', { content, messageType });
-    console.log('📤 Chat ID:', chatId);
-    console.log('📤 Sender ID:', senderId);
+    console.log('Received payload:', { content, messageType });
+    console.log(' Chat ID:', chatId);
+    console.log(' Sender ID:', senderId);
 
     // Check if user is participant
     const chat = await Chat.findOne({
@@ -173,13 +174,6 @@ const sendMessage = async (req, res) => {
       type: messageType
     });
 
-    console.log('💾 Saving message with fields:', {
-      chat: chatId,
-      sender: senderId,
-      content,
-      type: messageType
-    });
-
     await message.save();
     await message.populate('sender', 'name email profilePic');
 
@@ -188,18 +182,19 @@ const sendMessage = async (req, res) => {
     chat.updatedAt = new Date();
     await chat.save();
 
-    // Emit real-time message via WebSocket
+    // ✅ FIXED: Emit to CHAT ROOM instead of individual users
     if (req.io) {
-      chat.participants.forEach(participantId => {
-        if (participantId.toString() !== senderId.toString()) {
-          req.io.to(participantId.toString()).emit('newMessage', {
-            chatId,
-            message,
-            sender: req.user
-          });
+      req.io.to(chatId).emit('newMessage', {
+        chatId,
+        message,
+        sender: {
+          _id: senderId,
+          name: req.user.name,
+          email: req.user.email,
+          profilePic: req.user.profilePic
         }
       });
-      console.log(`🚀 Real-time message sent to chat ${chatId}`);
+      console.log(`🚀 Real-time message broadcasted to chat room ${chatId}`);
     }
 
     console.log(`✅ Message sent successfully in chat ${chatId}`);
@@ -209,6 +204,7 @@ const sendMessage = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 
 module.exports = {
   getUserChats,
