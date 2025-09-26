@@ -32,7 +32,6 @@ const FollowButton = ({
 
   const handleClick = async () => {
 
-     console.log('Follow button clicked, current status:', status);
      
     if (status === 'following' && showUnfollowModal) {
       setShowConfirm(true);

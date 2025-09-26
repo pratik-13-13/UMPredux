@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
-import { Provider } from 'react-redux'; // ADD: Redux Provider
-import { Toaster } from 'react-hot-toast'; // ADD: Toast notifications
-import store from './Store/Store.js'; // ADD: Your Redux store
+import { Provider, useSelector } from 'react-redux'; // ✅ ADDED: useSelector
+import { Toaster } from 'react-hot-toast';
+import store from './Store/Store.js';
+import socketService from './Services/socket/index.jsx'; // ✅ ADDED: Socket service
 import './Styles/App.css';
 import Login from './Pages/Auth/Login/Login.jsx';
 import Register from './Pages/Auth/Register/Register.jsx';
@@ -20,14 +21,29 @@ import FollowRequests from './Pages/FollowRequests/FollowRequests.jsx';
 import FollowersPage from "./Pages/Followers/FollowersPage.jsx";
 import FollowingPage from './Pages/Following/FollowingPage.jsx';
 import useSocket from './Hooks/useSocket.js';
-//import './components/UI/Notifications/NotificationStyles.css';
 import ChatList from './Pages/Chat/ChatList.jsx';
 import ChatWindow from './Pages/Chat/ChatWindow.jsx';
 import NewChat from './Pages/Chat/NewChat.jsx';
 
 // Layout component that includes navigation
 const Layout = () => {
+  //const { userInfo } = useSelector(state => state.user); // ✅ ADDED: Get user info
   useSocket(); // KEEP: Initialize WebSocket
+
+  // ✅ ADDED: Socket initialization for real-time messaging
+  // useEffect(() => {
+  //   if (userInfo?._id) {
+  //     console.log('🔌 Initializing socket for user:', userInfo.name);
+  //     socketService.initialize(userInfo._id);
+  //   } else {
+  //     // Clean disconnect when user logs out
+  //     socketService.disconnect();
+  //   }
+    
+  //   return () => {
+  //     socketService.disconnect();
+  //   };
+  // }, [userInfo?._id]);
 
   return (
     <>
@@ -224,7 +240,7 @@ function App() {
     <Provider store={store}>
       <AppContent />
 
-      {/* ADD: Toaster for WebSocket notifications */}
+      {/* Toaster for WebSocket notifications */}
       <Toaster
         position="top-right"
         containerClassName="z-50"

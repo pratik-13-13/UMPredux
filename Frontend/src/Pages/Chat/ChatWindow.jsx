@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getChatMessages, sendMessage, setCurrentChat, addMessage, setTyping } from '../../Store/Slices/chatSlice.js';
-import socketService from '../../Services/socket/index.jsx';
+import { getChatMessages, sendMessage, addMessage } from '../../Store/Slices/chatSlice.js';
 import ChatHeader from '../../components/Chat/ChatHeader.jsx';
 import MessageBubble from '../../components/Chat/MessageBubble.jsx';
 import MessageInput from '../../components/Chat/MessageInput.jsx';
@@ -13,55 +12,81 @@ const ChatWindow = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const messagesEndRef = useRef(null);
-  const { currentChat, messages, typingUsers, chats } = useSelector(state => state.chat); // Added chats
-  const { userInfo } = useSelector(state => state.user);
-  
+  const { currentChat, messages, typingUsers, chats } = useSelector(state => state.chat);
+  const { userInfo, token } = useSelector(state => state.user);
+
+  const [chatData, setChatData] = useState(null);
+
   const chatMessages = messages[chatId] || [];
   const typingUsersInChat = typingUsers[chatId] || [];
 
-  // ✅ FIXED: Get chat info from chats list if currentChat is not available
-  const chatInfo = currentChat || chats.find(chat => chat._id === chatId);
+  // Get chat info from multiple sources
+  const chatInfo = chatData || currentChat || chats.find(chat => chat._id === chatId);
 
-  useEffect(() => {
-    if (chatId) {
-      // ✅ FIXED: Set current chat from chats list
-      const foundChat = chats.find(chat => chat._id === chatId);
-      if (foundChat && !currentChat) {
-        dispatch(setCurrentChat(foundChat));
+  // Fetch specific chat data
+  const fetchChatData = async () => {
+    try {
+      const authToken = token || userInfo?.token || localStorage.getItem('authToken');
+
+      const response = await fetch(`http://192.168.1.154:5000/api/chat/${chatId}`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const chat = await response.json();
+        setChatData(chat);
       }
+    } catch (error) {
+      // Silent error handling - could add error state if needed
+    }
+  };
 
+  // Socket connection and message handling
+  useEffect(() => {
+    if (chatId && userInfo?._id) {
+      fetchChatData();
       dispatch(getChatMessages({ chatId }));
       
-      // Join chat room for real-time updates
-      const socket = socketService.getSocket();
-      if (socket) {
-        socket.emit('joinChat', { chatId, userId: userInfo._id });
+      const connectAndJoin = () => {
+        const currentSocket = window.globalSocket;
         
-        // Listen for new messages
-        socket.on('newMessage', (data) => {
-          if (data.chatId === chatId) {
-            dispatch(addMessage({ chatId, message: data.message }));
-          }
-        });
-        
-        // Listen for typing indicators
-        socket.on('userTyping', (data) => {
-          dispatch(setTyping({ chatId, user: data.user, isTyping: true }));
-        });
-        
-        socket.on('userStoppedTyping', (data) => {
-          dispatch(setTyping({ chatId, user: data.user, isTyping: false }));
-        });
-        
-        return () => {
-          socket.off('newMessage');
-          socket.off('userTyping');
-          socket.off('userStoppedTyping');
-          socket.emit('leaveChat', { chatId, userId: userInfo._id });
-        };
-      }
+        if (currentSocket && currentSocket.connected) {
+          // Join chat room
+          currentSocket.emit('joinChat', { chatId, userId: userInfo._id });
+          
+          const handleNewMessage = (data) => {
+            const messageSenderId = data.message?.sender?._id || data.sender?._id;
+            const isFromCurrentUser = messageSenderId === userInfo._id;
+            
+            // Only add message if it's for current chat and not from current user
+            if (data.chatId === chatId && !isFromCurrentUser) {
+              dispatch(addMessage({ 
+                chatId: data.chatId, 
+                message: data.message 
+              }));
+            }
+          };
+          
+          // Remove existing listener to prevent duplicates
+          currentSocket.off('newMessage', handleNewMessage);
+          currentSocket.on('newMessage', handleNewMessage);
+          
+          return () => {
+            currentSocket.off('newMessage', handleNewMessage);
+            currentSocket.emit('leaveChat', { chatId, userId: userInfo._id });
+          };
+        } else {
+          // Retry if socket not ready
+          setTimeout(connectAndJoin, 1000);
+        }
+      };
+      
+      return connectAndJoin();
     }
-  }, [chatId, dispatch, userInfo._id, chats, currentChat]); // Added dependencies
+  }, [chatId, dispatch, userInfo?._id]);
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -79,13 +104,10 @@ const ChatWindow = () => {
   };
 
   const handleTyping = (isTyping) => {
-    const socket = socketService.getSocket();
-    if (socket) {
-      if (isTyping) {
-        socket.emit('typing', { chatId, user: userInfo });
-      } else {
-        socket.emit('stopTyping', { chatId, user: userInfo });
-      }
+    const socket = window.globalSocket;
+    if (socket && socket.connected) {
+      const eventType = isTyping ? 'typing' : 'stopTyping';
+      socket.emit(eventType, { chatId, user: userInfo });
     }
   };
 
@@ -98,11 +120,11 @@ const ChatWindow = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-screen bg-amber-600-100">
       {/* Chat Header */}
-      <ChatHeader 
+      <ChatHeader
         chat={chatInfo}
-        currentUser={userInfo} 
+        currentUser={userInfo}
         onBack={() => navigate('/chat')}
       />
 
@@ -111,25 +133,25 @@ const ChatWindow = () => {
         {chatMessages.map((message, index) => {
           const isOwn = message.sender._id === userInfo._id;
           const showAvatar = !isOwn && (
-            index === 0 || 
+            index === 0 ||
             chatMessages[index - 1].sender._id !== message.sender._id
           );
-          
+
           return (
             <MessageBubble
-              key={message._id}
+              key={`${message._id}-${index}`}
               message={message}
               isOwn={isOwn}
               showAvatar={showAvatar}
             />
           );
         })}
-        
+
         {/* Typing Indicator */}
         {typingUsersInChat.length > 0 && (
           <TypingIndicator users={typingUsersInChat} />
         )}
-        
+
         {/* Auto scroll target */}
         <div ref={messagesEndRef} />
       </div>

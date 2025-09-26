@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-const API_BASE = "https://api-umpredux.onrender.com/api/chat"
-//const API_BASE = 'http://192.168.1.154:5000/api/chat'; 
+//const API_BASE = "https://api-umpredux.onrender.com/api/chat"
+const API_BASE = 'http://192.168.1.154:5000/api/chat'; 
 
 // Helper function to get token (DRY principle)
 const getAuthToken = (state) => {
@@ -19,8 +19,7 @@ export const getUserChats = createAsyncThunk(
       const state = getState();
       const token = getAuthToken(state);
       
-      console.log('🔍 Making API call to:', `${API_BASE}`);
-      console.log('🔍 Using token:', token ? `${token.substring(0, 20)}...` : 'No token');
+    
       
       if (!token) {
         throw new Error('No authentication token found');
@@ -33,7 +32,7 @@ export const getUserChats = createAsyncThunk(
         },
       });
       
-      console.log('🔍 Response status:', response.status);
+   
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -42,7 +41,7 @@ export const getUserChats = createAsyncThunk(
       }
       
       const data = await response.json();
-      console.log('✅ Chats fetched successfully:', data.length);
+     
       return data;
     } catch (error) {
       console.error('❌ getUserChats error:', error.message);
@@ -59,8 +58,7 @@ export const createOrGetChat = createAsyncThunk(
       const state = getState();
       const token = getAuthToken(state);
       
-      console.log('🔗 Creating chat with participant:', participantId);
-      console.log('🔍 Using token:', token ? `${token.substring(0, 20)}...` : 'No token');
+    
       
       if (!token) {
         throw new Error('No authentication token found');
@@ -75,7 +73,7 @@ export const createOrGetChat = createAsyncThunk(
         body: JSON.stringify({ participantId }),
       });
       
-      console.log('🔍 Response status:', response.status);
+    
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -84,7 +82,7 @@ export const createOrGetChat = createAsyncThunk(
       }
       
       const data = await response.json();
-      console.log('✅ Chat created successfully:', data._id);
+    
       return data;
     } catch (error) {
       console.error('❌ createOrGetChat error:', error.message);
@@ -101,7 +99,6 @@ export const getChatMessages = createAsyncThunk(
       const state = getState();
       const token = getAuthToken(state);
       
-      console.log('💬 Fetching messages for chat:', chatId);
       
       if (!token) {
         throw new Error('No authentication token found');
@@ -120,7 +117,6 @@ export const getChatMessages = createAsyncThunk(
       }
       
       const messages = await response.json();
-      console.log('✅ Messages fetched:', messages.length);
       return { chatId, messages, page };
     } catch (error) {
       console.error('❌ getChatMessages error:', error.message);
@@ -137,7 +133,6 @@ export const sendMessage = createAsyncThunk(
       const state = getState();
       const token = getAuthToken(state);
       
-      console.log('📤 Sending message to chat:', chatId);
       
       if (!token) {
         throw new Error('No authentication token found');
@@ -162,7 +157,6 @@ export const sendMessage = createAsyncThunk(
       }
       
       const message = await response.json();
-      console.log('✅ Message sent successfully:', message._id);
       return { chatId, message };
     } catch (error) {
       console.error('❌ sendMessage error:', error.message);
@@ -190,7 +184,11 @@ const chatSlice = createSlice({
       if (!state.messages[chatId]) {
         state.messages[chatId] = [];
       }
-      state.messages[chatId].push(message);
+      // ✅ FIXED: Check for duplicates before adding
+      const isDuplicate = state.messages[chatId].some(m => m._id === message._id);
+      if (!isDuplicate) {
+        state.messages[chatId].push(message);
+      }
     },
     setTyping: (state, action) => {
       const { chatId, user, isTyping } = action.payload;
@@ -278,7 +276,12 @@ const chatSlice = createSlice({
         if (!state.messages[chatId]) {
           state.messages[chatId] = [];
         }
-        state.messages[chatId].push(message);
+        
+        // ✅ FIXED: Add message to sender's view immediately (avoid duplicates)
+        const isDuplicate = state.messages[chatId].some(m => m._id === message._id);
+        if (!isDuplicate) {
+          state.messages[chatId].push(message);
+        }
         
         // Update last message in chat list
         const chat = state.chats.find(c => c._id === chatId);

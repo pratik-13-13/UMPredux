@@ -13,11 +13,7 @@ const ChatHeader = ({ chat, currentUser, onBack }) => { // ✅ ADDED: currentUse
 
   const otherUser = getOtherParticipant();
 
-  console.log('🔍 Debug ChatHeader:');
-  console.log('📄 Chat:', chat);
-  console.log('👤 Current User:', currentUser);
-  console.log('👥 Participants:', chat?.participants);
-  console.log('🎯 Other User:', otherUser);
+
 
   return (
     <div className="sticky top-0 bg-white border-b border-gray-200 z-10">
