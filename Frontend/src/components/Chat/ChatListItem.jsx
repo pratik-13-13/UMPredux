@@ -63,8 +63,14 @@ const ChatListItem = ({ chat, onClick }) => {
             {getLastMessageText()}
           </p>
           
-          {/* Unread count (you can add unread count logic) */}
-          {/* <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div> */}
+          {/* Unread count badge - Instagram style */}
+          {chat.unreadCount > 0 && (
+            <div className="bg-blue-500 rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 flex-shrink-0">
+              <span className="text-white text-xs font-bold">
+                {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>

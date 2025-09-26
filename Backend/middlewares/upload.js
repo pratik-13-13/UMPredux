@@ -49,7 +49,7 @@ if (
       },
     });
 
-    console.log('✅ Cloudinary storage configured successfully');
+   
   } catch (error) {
     console.error('❌ Cloudinary configuration failed:', error);
     cloudinary = null;
@@ -64,7 +64,6 @@ function createStoryDiskStorage() {
 
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log(`📁 Created STORY upload directory: ${uploadDir}`);
       }
 
       cb(null, uploadDir);
@@ -85,7 +84,6 @@ function createPostDiskStorage() {
 
       if (!fs.existsSync(uploadDir)) {
         fs.mkdirSync(uploadDir, { recursive: true });
-        console.log(`📁 Created POST upload directory: ${uploadDir}`);
       }
 
       cb(null, uploadDir);
@@ -107,9 +105,10 @@ const createUpload = (storage) => {
       files: 1,
     },
     fileFilter: (req, file, cb) => {
-      if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Only image files are allowed!'), false);
-      }
+     if (!file.mimetype.startsWith('image/')) {
+    console.log('❌ UPLOAD ERROR: Not an image file');
+    return cb(new Error('Only image files are allowed!'), false);
+  }
 
       const allowedFormats = [
         'image/jpeg',
@@ -118,12 +117,15 @@ const createUpload = (storage) => {
         'image/gif',
         'image/webp',
       ];
-      if (!allowedFormats.includes(file.mimetype)) {
-        return cb(
-          new Error('Invalid image format. Allowed: JPEG, PNG, GIF, WebP'),
-          false
-        );
-      }
+     if (!allowedFormats.includes(file.mimetype)) {
+    console.log('❌ UPLOAD ERROR: Invalid format');
+    return cb(
+      new Error('Invalid image format. Allowed: JPEG, PNG, GIF, WebP'),
+      false
+    );
+  }
+
+  console.log('✅ UPLOAD: File accepted');
 
       cb(null, true);
     },

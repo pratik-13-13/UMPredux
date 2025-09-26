@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import io from 'socket.io-client';
 import { getFollowRequests } from '../Store/Slices/followSlice.js';
+import { getUnreadCount } from '../Store/Slices/chatSlice.js';
 
 let socket = null;
 
@@ -31,11 +32,19 @@ const useSocket = () => {
       // Join user's personal notification room
       socket.emit('joinUser', userInfo._id);
       
-      // Connection events
+      // Connection events with better logging
       socket.on('connect', () => {
+        console.log('✅ Socket connected:', socket.id);
+        // Re-join user room on reconnection
+        socket.emit('joinUser', userInfo._id);
       });
 
       socket.on('disconnect', (reason) => {
+        console.log('❌ Socket disconnected:', reason);
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error('❌ Socket connection error:', error);
       });
 
       // Follow request notifications
@@ -53,9 +62,12 @@ const useSocket = () => {
      
       });
 
-      // ✅ ADDED: Chat message handling (will be used by ChatWindow)
+      // ✅ ADDED: Chat message handling for unread count updates
       socket.on('newMessage', (data) => {
-        
+        // Update unread count when receiving new messages
+        if (data.message?.sender?._id !== userInfo._id) {
+          dispatch(getUnreadCount());
+        }
       });
     }
 

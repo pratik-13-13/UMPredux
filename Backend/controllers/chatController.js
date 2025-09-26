@@ -15,11 +15,17 @@ const getUserChats = async (req, res) => {
     .sort({ updatedAt: -1 })
     .limit(20);
 
-    // ✅ FIXED: Keep participants in formatted chats
-    const formattedChats = chats.map(chat => {
+    const formattedChats = await Promise.all(chats.map(async (chat) => {
       const otherParticipant = chat.participants.find(
         p => p._id.toString() !== userId.toString()
       );
+
+      // Count unread messages for this chat
+      const unreadCount = await Message.countDocuments({
+        chat: chat._id,
+        sender: { $ne: userId },
+        'readBy.user': { $ne: userId }
+      });
 
       return {
         _id: chat._id,
@@ -29,14 +35,13 @@ const getUserChats = async (req, res) => {
         lastMessage: chat.lastMessage,
         lastActivity: chat.updatedAt,
         otherUser: otherParticipant,
-        participants: chat.participants // ✅ ADDED: Keep participants array
+        participants: chat.participants,
+        unreadCount: unreadCount
       };
-    });
+    }));
 
-    console.log(`📱 Fetched ${formattedChats.length} chats for user ${userId}`);
     res.json(formattedChats);
   } catch (error) {
-    console.error('❌ Get chats error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -58,25 +63,17 @@ const getChatById = async (req, res) => {
       return res.status(404).json({ message: 'Chat not found' });
     }
 
-    console.log('🔍 Specific chat fetched:', {
-      id: chat._id,
-      participants: chat.participants
-    });
-
     res.json(chat);
   } catch (error) {
-    console.error('❌ Get chat by ID error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 // Create or get existing chat
-const createOrGetChat = async (req, res) => {
+const   createOrGetChat = async (req, res) => {
   try {
     const { participantId } = req.body;
     const userId = req.user._id;
-
-    console.log(`🔗 Creating chat between ${userId} and ${participantId}`);
 
     // Check if chat already exists
     let chat = await Chat.findOne({
@@ -93,14 +90,10 @@ const createOrGetChat = async (req, res) => {
       });
       await chat.save();
       await chat.populate('participants', 'name email profilePic');
-      console.log(`✅ New chat created: ${chat._id}`);
-    } else {
-      console.log(`✅ Existing chat found: ${chat._id}`);
     }
 
     res.json(chat);
   } catch (error) {
-    console.error('❌ Create chat error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -131,20 +124,43 @@ const getChatMessages = async (req, res) => {
     await Message.updateMany(
       { 
         chat: chatId,
-        sender: { $ne: req.user._id }
+        sender: { $ne: req.user._id },
+        'readBy.user': { $ne: req.user._id }
       },
-      { $addToSet: { readBy: { userId: req.user._id, readAt: new Date() } } }
+      { $addToSet: { readBy: { user: req.user._id, readAt: new Date() } } }
     );
 
-    console.log(` Fetched ${messages.length} messages for chat ${chatId}`);
     res.json(messages.reverse());
   } catch (error) {
-    console.error(' Get messages error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-// Send message
+// Get total unread message count for user (Instagram-style)
+const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Get all chats where user is participant
+    const userChats = await Chat.find({
+      participants: userId
+    }).select('_id');
+
+    const chatIds = userChats.map(chat => chat._id);
+
+    // Count unread messages across all chats
+    const totalUnreadCount = await Message.countDocuments({
+      chat: { $in: chatIds },
+      sender: { $ne: userId },
+      'readBy.user': { $ne: userId }
+    });
+
+    res.json({ unreadCount: totalUnreadCount });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Send message
 const sendMessage = async (req, res) => {
   try {
@@ -152,9 +168,10 @@ const sendMessage = async (req, res) => {
     const { content, messageType = 'text' } = req.body;
     const senderId = req.user._id;
 
-    console.log('Received payload:', { content, messageType });
-    console.log(' Chat ID:', chatId);
-    console.log(' Sender ID:', senderId);
+    // Validate message content
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
 
     // Check if user is participant
     const chat = await Chat.findOne({
@@ -166,11 +183,11 @@ const sendMessage = async (req, res) => {
       return res.status(404).json({ message: 'Chat not found' });
     }
 
-    // Create message with correct field names
+    // Create message
     const message = new Message({
       chat: chatId,
       sender: senderId,
-      content,
+      content: content.trim(),
       type: messageType
     });
 
@@ -182,34 +199,58 @@ const sendMessage = async (req, res) => {
     chat.updatedAt = new Date();
     await chat.save();
 
-    // ✅ FIXED: Emit to CHAT ROOM instead of individual users
+    // Broadcast message to chat room - ENHANCED for better delivery
     if (req.io) {
+      console.log(`📤 Broadcasting message to chat ${chatId} from user ${senderId}`);
+      
+      // Emit to the chat room
       req.io.to(chatId).emit('newMessage', {
         chatId,
-        message,
-        sender: {
-          _id: senderId,
-          name: req.user.name,
-          email: req.user.email,
-          profilePic: req.user.profilePic
+        message: {
+          ...message.toObject(),
+          sender: {
+            _id: senderId,
+            name: req.user.name,
+            email: req.user.email,
+            profilePic: req.user.profilePic
+          }
         }
       });
-      console.log(`🚀 Real-time message broadcasted to chat room ${chatId}`);
+      
+      // Also emit to all participants individually (backup delivery)
+      chat.participants.forEach(participantId => {
+        if (participantId.toString() !== senderId.toString()) {
+          req.io.to(`user_${participantId}`).emit('newMessage', {
+            chatId,
+            message: {
+              ...message.toObject(),
+              sender: {
+                _id: senderId,
+                name: req.user.name,
+                email: req.user.email,
+                profilePic: req.user.profilePic
+              }
+            }
+          });
+        }
+      });
+      
+      console.log(`✅ Message broadcasted successfully`);
+    } else {
+      console.log('⚠️ Socket.io not available for broadcasting');
     }
 
-    console.log(`✅ Message sent successfully in chat ${chatId}`);
     res.status(201).json(message);
   } catch (error) {
-    console.error('❌ Send message error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
 
 module.exports = {
   getUserChats,
   createOrGetChat,
   getChatMessages,
   sendMessage,
-  getChatById
+  getChatById,
+  getUnreadCount
 };

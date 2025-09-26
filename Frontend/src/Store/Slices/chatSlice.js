@@ -125,6 +125,39 @@ export const getChatMessages = createAsyncThunk(
   }
 );
 
+// Get unread message count
+export const getUnreadCount = createAsyncThunk(
+  'chat/getUnreadCount',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState();
+      const token = getAuthToken(state);
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      const response = await fetch(`${API_BASE}/unread-count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch unread count');
+      }
+      
+      const data = await response.json();
+      return data.unreadCount;
+    } catch (error) {
+      console.error('❌ getUnreadCount error:', error.message);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // Send message
 export const sendMessage = createAsyncThunk(
   'chat/sendMessage',
@@ -172,6 +205,7 @@ const chatSlice = createSlice({
     currentChat: null,
     messages: {},
     typingUsers: {},
+    unreadCount: 0,
     loading: false,
     error: null,
   },
@@ -181,13 +215,19 @@ const chatSlice = createSlice({
     },
     addMessage: (state, action) => {
       const { chatId, message } = action.payload;
+      console.log(`📨 Adding message to chat ${chatId}:`, message);
+      
       if (!state.messages[chatId]) {
         state.messages[chatId] = [];
       }
-      // ✅ FIXED: Check for duplicates before adding
+      
+      // Check for duplicates before adding
       const isDuplicate = state.messages[chatId].some(m => m._id === message._id);
       if (!isDuplicate) {
         state.messages[chatId].push(message);
+        console.log('✅ Message added successfully');
+      } else {
+        console.log('⚠️ Duplicate message prevented in addMessage');
       }
     },
     setTyping: (state, action) => {
@@ -216,6 +256,9 @@ const chatSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    updateUnreadCount: (state, action) => {
+      state.unreadCount = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -270,17 +313,23 @@ const chatSlice = createSlice({
       // Send message
       .addCase(sendMessage.pending, (state) => {
         // Don't set loading true for sending messages (better UX)
+        state.error = null;
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const { chatId, message } = action.payload;
+        console.log('✅ Message sent successfully:', message);
+        
         if (!state.messages[chatId]) {
           state.messages[chatId] = [];
         }
         
-        // ✅ FIXED: Add message to sender's view immediately (avoid duplicates)
+        // Add message to sender's view immediately (avoid duplicates)
         const isDuplicate = state.messages[chatId].some(m => m._id === message._id);
         if (!isDuplicate) {
           state.messages[chatId].push(message);
+          console.log('✅ Message added to sender view');
+        } else {
+          console.log('⚠️ Duplicate message prevented');
         }
         
         // Update last message in chat list
@@ -291,7 +340,16 @@ const chatSlice = createSlice({
         }
       })
       .addCase(sendMessage.rejected, (state, action) => {
+        console.error('❌ Failed to send message:', action.payload);
         state.error = action.payload;
+      })
+      
+      // Get unread count
+      .addCase(getUnreadCount.fulfilled, (state, action) => {
+        state.unreadCount = action.payload;
+      })
+      .addCase(getUnreadCount.rejected, (state, action) => {
+        console.error('❌ Failed to get unread count:', action.payload);
       });
   },
 });
@@ -301,7 +359,8 @@ export const {
   addMessage, 
   setTyping, 
   updateMessageStatus,
-  clearError 
+  clearError,
+  updateUnreadCount
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

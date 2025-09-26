@@ -3,15 +3,18 @@ import { IoPaperPlaneOutline, IoHeartOutline } from "react-icons/io5";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { getFollowRequests } from "../../../Store/Slices/followSlice.js";
+import { getUnreadCount } from "../../../Store/Slices/chatSlice.js";
 
 const Header = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { followRequests } = useSelector(state => state.follow);
+  const { unreadCount } = useSelector(state => state.chat);
   
   useEffect(() => {
-    // ✅ ONLY fetch once on component mount - NO MORE POLLING!
+    // Fetch follow requests and unread message count
     dispatch(getFollowRequests());
+    dispatch(getUnreadCount());
   }, [dispatch]);
 
   const requestCount = followRequests?.length || 0;
@@ -48,12 +51,19 @@ const Header = () => {
             )}
           </button>
           
+          {/* Message Icon with Unread Count Badge */}
           <button 
-           onClick={handleMessagesClick}
+            onClick={handleMessagesClick}
             className="relative p-1"
-            >
-            
+          >
             <IoPaperPlaneOutline size={24} className="text-gray-800" />
+            {unreadCount > 0 && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                <span className="text-white text-xs font-bold">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              </div>
+            )}
           </button>
         </div>
       </div>

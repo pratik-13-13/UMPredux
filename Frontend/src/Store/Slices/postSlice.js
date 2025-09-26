@@ -20,17 +20,20 @@ export const createPost = createAsyncThunk(
   'posts/create',
   async ({ content, image }, { rejectWithValue, getState }) => {
     try {
-      const token = getState().user.token;
+      const token = getState().user.token || getState().user.userInfo?.token;
+
+      console.log('🚀 Creating post with token:', token ? 'Present' : 'Missing');
 
       if (!token) {
         throw new Error('Please login to create posts');
       }
 
-      // If image is a File, use FormData
       if (image instanceof File) {
         const formData = new FormData();
         formData.append('content', content);
         formData.append('image', image);
+
+        console.log('📤 Sending FormData with image');
 
         const response = await fetch(`${API_URL}`, {
           method: 'POST',
@@ -42,14 +45,15 @@ export const createPost = createAsyncThunk(
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create post');
+          const errorText = await response.text();
+          console.log('❌ Response error:', errorText);
+          throw new Error(errorText || 'Failed to create post');
         }
 
         return await response.json();
-      }
-      // If image is URL or no image, use JSON
-      else {
+      } else {
+        console.log('📤 Sending JSON without image');
+        
         const response = await fetch(`${API_URL}`, {
           method: 'POST',
           headers: {
@@ -63,17 +67,20 @@ export const createPost = createAsyncThunk(
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to create post');
+          const errorText = await response.text();
+          console.log('❌ Response error:', errorText);
+          throw new Error(errorText || 'Failed to create post');
         }
 
         return await response.json();
       }
     } catch (error) {
+      console.log('❌ Post creation error:', error.message);
       return rejectWithValue(error.message);
     }
   }
 );
+
 
 // ✅ ADD: Delete post thunk
 export const deletePost = createAsyncThunk(

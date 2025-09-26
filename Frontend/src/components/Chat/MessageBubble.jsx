@@ -1,11 +1,21 @@
 import React from 'react';
 
 const MessageBubble = ({ message, isOwn, showAvatar }) => {
+  // Add safety check for message
+  if (!message || !message.sender) {
+    return null;
+  }
+
   const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    if (!date) return '';
+    try {
+      return new Date(date).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch (error) {
+      return '';
+    }
   };
 
   return (
@@ -14,16 +24,16 @@ const MessageBubble = ({ message, isOwn, showAvatar }) => {
       {!isOwn && (
         <div className="w-6 h-6 rounded-full flex-shrink-0">
           {showAvatar ? (
-            message.sender.profilePic ? (
+            message.sender?.profilePic ? (
               <img
                 src={message.sender.profilePic}
-                alt={message.sender.name}
+                alt={message.sender?.name || 'User'}
                 className="w-6 h-6 rounded-full object-cover"
               />
             ) : (
               <div className="w-6 h-6 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
                 <span className="text-white text-xs font-medium">
-                  {message.sender.name.charAt(0).toUpperCase()}
+                  {message.sender?.name?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
               </div>
             )
@@ -43,14 +53,14 @@ const MessageBubble = ({ message, isOwn, showAvatar }) => {
         {message.replyTo && (
           <div className="mb-2 p-2 border-l-2 border-gray-300 bg-gray-50 rounded">
             <p className="text-xs text-gray-500 truncate">
-              {message.replyTo.content}
+              {message.replyTo?.content || 'Message'}
             </p>
           </div>
         )}
 
         {/* Message content based on type */}
-        {message.type === 'text' && (
-          <p className="text-sm break-words">{message.content}</p>
+        {(message.type === 'text' || !message.type) && (
+          <p className="text-sm break-words">{message.content || ''}</p>
         )}
         
         {message.type === 'image' && (

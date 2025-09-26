@@ -15,9 +15,24 @@ const storySchema = new mongoose.Schema({
     required: true 
   }, // Story must have image/video
   viewers: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
+    userId: {
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User',
+      required: true
+    },
+    viewedAt: {
+      type: Date,
+      default: Date.now
+    }
   }],
+  viewCount: {
+    type: Number,
+    default: 0
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   expiresAt: { 
     type: Date, 
     default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours

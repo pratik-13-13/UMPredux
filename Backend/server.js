@@ -18,12 +18,15 @@ const chatRoutes = require('./routes/chatRoutes');
 const initializeSocket = require('./sockets/index.js');
 
 const app = express();
+
+
 // NEW: Create HTTP server for WebSocket
 const server = http.createServer(app);
 
 // Middlewares (SAME as before - no changes)
 app.use(cors());
-app.use(express.json());
+app.use(express.json({limit : "20mb"}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve both uploads folders statically (SAME as before)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -185,11 +185,15 @@ const StoryViewer = () => {
 
   const userAvatar = generateAvatar(currentUserStories._id);
   
-  // ✅ KEPT: Original viewer count logic - NO CHANGES
-  const uniqueViewers = currentStory.viewers?.filter((viewer, index, self) =>
-    index === self.findIndex(v => v._id === viewer._id)
-  ) || [];
-  const viewerCount = uniqueViewers.length;
+  // ✅ ENHANCED: Handle both old and new viewer formats
+  const uniqueViewers = currentStory.viewers?.filter((viewer, index, self) => {
+    const viewerId = viewer.userId?._id || viewer._id;
+    return index === self.findIndex(v => {
+      const vId = v.userId?._id || v._id;
+      return vId === viewerId;
+    });
+  }) || [];
+  const viewerCount = currentStory.viewCount || uniqueViewers.length;
 
 
   return (
@@ -311,16 +315,36 @@ const StoryViewer = () => {
               <div className="text-white text-sm font-semibold mb-3">
                 Story viewers ({viewerCount})
               </div>
-              {uniqueViewers.map((viewer) => (
-                <div key={viewer._id} className="flex items-center space-x-3 text-white text-sm py-2 border-b border-gray-700/50 last:border-b-0">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-semibold">
-                      {viewer.name?.toUpperCase() || 'U'}
-                    </span>
+              {uniqueViewers.map((viewer) => {
+                const user = viewer.userId || viewer;
+                const viewedAt = viewer.viewedAt;
+                
+                return (
+                  <div key={user._id} className="flex items-center justify-between text-white text-sm py-2 border-b border-gray-700/50 last:border-b-0">
+                    <div className="flex items-center space-x-3">
+                      {user.profilePic ? (
+                        <img 
+                          src={user.profilePic} 
+                          alt={user.name}
+                          className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-400 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-semibold">
+                            {user.name?.substring(0, 2).toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <span className="flex-1">{user.name || 'Unknown User'}</span>
+                    </div>
+                    {viewedAt && (
+                      <span className="text-xs text-gray-400">
+                        {new Date(viewedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
                   </div>
-                  <span className="flex-1">{viewer.name || 'Unknown User'}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

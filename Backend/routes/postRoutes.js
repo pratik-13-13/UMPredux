@@ -15,6 +15,9 @@ const {
 
 router.use((req, res, next) => {
   console.log(`📡 ${req.method} ${req.originalUrl}`);
+  console.log('📄 Request body:', req.body);
+  console.log('📁 Request file:', req.file ? 'File present' : 'No file');
+  console.log('👤 User:', req.user ? req.user._id : 'No user');
   next();
 });
 
@@ -22,7 +25,21 @@ router.use((req, res, next) => {
 router.get('/', getAllPosts);
 
 // Create a post with optional image upload (requires login)
-router.post('/', authenticateToken, postUpload.single('image'), createPost);
+router.post('/', 
+  authenticateToken, 
+  (req, res, next) => {
+    console.log('🔍 BEFORE UPLOAD - Body:', req.body);
+    console.log('🔍 BEFORE UPLOAD - Files:', req.files);
+    next();
+  },
+  postUpload.single('image'),
+  (req, res, next) => {
+    console.log('🔍 AFTER UPLOAD - Body:', req.body);
+    console.log('🔍 AFTER UPLOAD - File:', req.file);
+    next();
+  },
+  createPost
+);
 
 // Delete a post (requires login)
 router.delete('/:postId', authenticateToken, deletePost);

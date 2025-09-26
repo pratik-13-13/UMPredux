@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { getChatMessages, sendMessage, addMessage } from '../../Store/Slices/chatSlice.js';
+import { getChatMessages, sendMessage, addMessage, getUnreadCount } from '../../Store/Slices/chatSlice.js';
 import ChatHeader from '../../components/Chat/ChatHeader.jsx';
 import MessageBubble from '../../components/Chat/MessageBubble.jsx';
 import MessageInput from '../../components/Chat/MessageInput.jsx';
@@ -49,24 +49,35 @@ const ChatWindow = () => {
     if (chatId && userInfo?._id) {
       fetchChatData();
       dispatch(getChatMessages({ chatId }));
+      // Update unread count when entering chat (messages will be marked as read)
+      setTimeout(() => dispatch(getUnreadCount()), 1000);
       
       const connectAndJoin = () => {
         const currentSocket = window.globalSocket;
         
         if (currentSocket && currentSocket.connected) {
+          console.log(`💬 Joining chat ${chatId} for user ${userInfo._id}`);
+          
           // Join chat room
           currentSocket.emit('joinChat', { chatId, userId: userInfo._id });
           
           const handleNewMessage = (data) => {
+            console.log('📨 Received new message:', data);
+            
             const messageSenderId = data.message?.sender?._id || data.sender?._id;
             const isFromCurrentUser = messageSenderId === userInfo._id;
             
-            // Only add message if it's for current chat and not from current user
+            console.log(`Message from: ${messageSenderId}, Current user: ${userInfo._id}, Is own message: ${isFromCurrentUser}`);
+            
+            // Add message if it's for current chat and not from current user
             if (data.chatId === chatId && !isFromCurrentUser) {
+              console.log('✅ Adding message to chat');
               dispatch(addMessage({ 
                 chatId: data.chatId, 
                 message: data.message 
               }));
+            } else {
+              console.log('❌ Message not added - wrong chat or own message');
             }
           };
           
@@ -75,10 +86,12 @@ const ChatWindow = () => {
           currentSocket.on('newMessage', handleNewMessage);
           
           return () => {
+            console.log(`💬 Leaving chat ${chatId}`);
             currentSocket.off('newMessage', handleNewMessage);
             currentSocket.emit('leaveChat', { chatId, userId: userInfo._id });
           };
         } else {
+          console.log('⚠️ Socket not ready, retrying...');
           // Retry if socket not ready
           setTimeout(connectAndJoin, 1000);
         }

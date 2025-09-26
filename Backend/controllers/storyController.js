@@ -98,10 +98,10 @@ const getStoriesByUser = async (req, res) => {
       { $sort: { 'latestStory.createdAt': -1 } }
     ]);
 
-    // ✅ CRITICAL: Populate viewers with full data
+    // ✅ ENHANCED: Populate viewers with full data including profilePic
     await Story.populate(stories, [
-      { path: 'stories.viewers', select: 'name email' },
-      { path: 'latestStory.viewers', select: 'name email' }
+      { path: 'stories.viewers.userId', select: 'name email profilePic' },
+      { path: 'latestStory.viewers.userId', select: 'name email profilePic' }
     ]);
     
     return res.json(stories);
@@ -112,7 +112,7 @@ const getStoriesByUser = async (req, res) => {
 };
 
 
-// ✅ OPTIONAL: Enhanced viewStory controller
+// ✅ ENHANCED: Instagram-like viewStory controller
 const viewStory = async (req, res) => {
   try {
     const { storyId } = req.params;
@@ -122,46 +122,51 @@ const viewStory = async (req, res) => {
       return res.status(404).json({ error: 'Story not found' });
     }
     
+    // Check if story is expired
+    if (story.expiresAt < new Date()) {
+      return res.status(404).json({ error: 'Story has expired' });
+    }
+    
     const userId = req.user._id;
     
-    // ✅ OPTIONAL: Don't count views for own stories
+    // Don't count views for own stories
     if (story.userId.toString() === userId.toString()) {
-      //console.log(`🚫 User ${userId} viewing own story ${storyId} - not counting view`);
-      
       const populated = await Story.findById(storyId)
-        .populate({ path: 'userId', select: 'name email' })
-        .populate({ path: 'viewers', select: 'name email' });
+        .populate({ path: 'userId', select: 'name email profilePic' })
+        .populate({ path: 'viewers.userId', select: 'name email profilePic' });
         
       return res.json({
         success: true,
         story: populated,
-        viewCount: populated.viewers.length,
+        viewCount: populated.viewCount || populated.viewers.length,
         hasViewed: false,
         isOwnStory: true
       });
     }
     
     // Check if user already viewed (prevent duplicates)
-    const hasViewed = story.viewers.some(viewerId => 
-      viewerId.toString() === userId.toString()
+    const hasViewed = story.viewers.some(viewer => 
+      viewer.userId ? viewer.userId.toString() === userId.toString() : viewer.toString() === userId.toString()
     );
     
     if (!hasViewed) {
-      story.viewers.push(userId);
+      // Add new viewer with timestamp
+      story.viewers.push({
+        userId: userId,
+        viewedAt: new Date()
+      });
+      story.viewCount = (story.viewCount || 0) + 1;
       await story.save();
-      //console.log(`✅ User ${userId} viewed story ${storyId} for the first time`);
-    } else {
-      //console.log(`📝 User ${userId} already viewed story ${storyId}`);
     }
     
     const populated = await Story.findById(storyId)
-      .populate({ path: 'userId', select: 'name email' })
-      .populate({ path: 'viewers', select: 'name email' });
+      .populate({ path: 'userId', select: 'name email profilePic' })
+      .populate({ path: 'viewers.userId', select: 'name email profilePic' });
       
     return res.json({
       success: true,
       story: populated,
-      viewCount: populated.viewers.length,
+      viewCount: populated.viewCount || populated.viewers.length,
       hasViewed: true,
       isOwnStory: false
     });
@@ -172,12 +177,12 @@ const viewStory = async (req, res) => {
 };
 
 
-// Get story viewers (for the story owner)
+// Get story viewers (for the story owner) - Instagram style
 const getStoryViewers = async (req, res) => {
   try {
     const { storyId } = req.params;
     const story = await Story.findById(storyId)
-      .populate({ path: 'viewers', select: 'name email' });
+      .populate({ path: 'viewers.userId', select: 'name email profilePic' });
     
     if (!story) {
       return res.status(404).json({ error: 'Story not found' });
@@ -188,10 +193,18 @@ const getStoryViewers = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
     
+    // Sort viewers by most recent first
+    const sortedViewers = story.viewers
+      .sort((a, b) => new Date(b.viewedAt) - new Date(a.viewedAt))
+      .map(viewer => ({
+        user: viewer.userId,
+        viewedAt: viewer.viewedAt
+      }));
+    
     return res.json({
       storyId: story._id,
-      viewerCount: story.viewers.length,
-      viewers: story.viewers
+      viewerCount: story.viewCount || story.viewers.length,
+      viewers: sortedViewers
     });
   } catch (error) {
     return res.status(500).json({ error: 'Server error' });
@@ -229,7 +242,54 @@ const deleteStory = async (req, res) => {
   }
 };
 
-// ✅ ADDED: Clean duplicate viewers utility function
+// ✅ NEW: Mark user stories as seen (Instagram-like)
+const markStoriesAsSeen = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const viewerId = req.user._id;
+    
+    // Don't mark own stories as seen
+    if (userId === viewerId.toString()) {
+      return res.json({ message: 'Cannot mark own stories as seen' });
+    }
+    
+    // Find all active stories from this user
+    const stories = await Story.find({
+      userId: userId,
+      expiresAt: { $gt: new Date() },
+      isActive: true
+    });
+    
+    let markedCount = 0;
+    
+    for (let story of stories) {
+      // Check if already viewed
+      const hasViewed = story.viewers.some(viewer => 
+        viewer.userId ? viewer.userId.toString() === viewerId.toString() : viewer.toString() === viewerId.toString()
+      );
+      
+      if (!hasViewed) {
+        story.viewers.push({
+          userId: viewerId,
+          viewedAt: new Date()
+        });
+        story.viewCount = (story.viewCount || 0) + 1;
+        await story.save();
+        markedCount++;
+      }
+    }
+    
+    return res.json({ 
+      message: `Marked ${markedCount} stories as seen`,
+      markedCount
+    });
+  } catch (error) {
+    console.error('Mark stories as seen error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// ✅ UPDATED: Clean duplicate viewers utility function
 const cleanDuplicateViewers = async (req, res) => {
   try {
     const stories = await Story.find({});
@@ -237,13 +297,21 @@ const cleanDuplicateViewers = async (req, res) => {
     
     for (let story of stories) {
       const originalCount = story.viewers.length;
-      const uniqueViewers = [...new Set(story.viewers.map(v => v.toString()))];
+      
+      // Handle both old and new viewer formats
+      const uniqueViewers = story.viewers.filter((viewer, index, self) => {
+        const viewerId = viewer.userId ? viewer.userId.toString() : viewer.toString();
+        return index === self.findIndex(v => {
+          const vId = v.userId ? v.userId.toString() : v.toString();
+          return vId === viewerId;
+        });
+      });
       
       if (uniqueViewers.length !== originalCount) {
         story.viewers = uniqueViewers;
+        story.viewCount = uniqueViewers.length;
         await story.save();
         cleanedCount++;
-        //console.log(`Cleaned duplicates for story ${story._id}: ${originalCount} -> ${uniqueViewers.length}`);
       }
     }
     
@@ -252,7 +320,7 @@ const cleanDuplicateViewers = async (req, res) => {
       storiesCleaned: cleanedCount
     });
   } catch (error) {
-    //console.error('Clean duplicates error:', error);
+    console.error('Clean duplicates error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };
@@ -290,6 +358,7 @@ module.exports = {
   viewStory,
   deleteStory,
   getStoryViewers,
+  markStoriesAsSeen,
   cleanDuplicateViewers,
   cleanOldFilePaths 
 };

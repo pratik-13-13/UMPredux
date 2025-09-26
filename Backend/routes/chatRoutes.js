@@ -6,11 +6,15 @@ const {
   createOrGetChat,
   getChatMessages,
   sendMessage,
-  getChatById
+  getChatById,
+  getUnreadCount
 } = require('../controllers/chatController.js');
 
 // Get all chats for user
 router.get('/', authenticateToken, getUserChats);
+
+// Get unread message count
+router.get('/unread-count', authenticateToken, getUnreadCount);
 
 // Create or get existing chat
 router.post('/create', authenticateToken, createOrGetChat);
