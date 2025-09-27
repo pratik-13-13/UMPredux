@@ -1,8 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
 
-const API_URL = "https://api-umpredux.onrender.com/api/follow";
-//const API_URL = 'http://192.168.1.154:5000/api/follow';
+import { API_CONFIG } from "../../config/api.js";
+
+const API_URL = API_CONFIG.FOLLOW;
 
 // Get token from localStorage
 const getToken = () => localStorage.getItem('authToken');

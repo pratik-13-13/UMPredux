@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-const API_BASE = "https://api-umpredux.onrender.com/api/chat"
-//const API_BASE = 'http://192.168.1.154:5000/api/chat'; 
+import { API_CONFIG } from "../../config/api.js";
+
+const API_BASE = API_CONFIG.CHAT; 
 
 // Helper function to get token (DRY principle)
 const getAuthToken = (state) => {

@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { API_CONFIG } from "../../config/api.js";
 
-const API_URL = "https://api-umpredux.onrender.com/api/users"; // Base API URL
- //const API_URL = "http://192.168.1.154:5000/api/users";
+const API_URL = API_CONFIG.USERS;
 
 // ✅ Register User
 export const registerUser = createAsyncThunk(
@@ -39,14 +39,14 @@ export const fetchUserById = createAsyncThunk(
       if (!id) {
         return rejectWithValue("Invalid user id");
       }
-      
+
       const token = getState().user.token;
       const config = token ? {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       } : {};
-      
+
       const response = await axios.get(`${API_URL}/${id}`, config);
       return response.data;
     } catch (error) {
@@ -66,7 +66,7 @@ export const fetchAllUsers = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       } : {};
-      
+
       const response = await axios.get(API_URL, config);
       return response.data;
     } catch (error) {
@@ -86,7 +86,7 @@ export const addUser = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       } : {};
-      
+
       // Check if user already exists
       const existingUsersResponse = await axios.get(API_URL, config);
       const existingUser = existingUsersResponse.data.find((u) => u.email === userData.email);
@@ -119,7 +119,7 @@ export const updateUser = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       } : {};
-      
+
       const response = await axios.put(`${API_URL}/${id}`, updatedData, config);
       return response.data;
     } catch (error) {
@@ -139,7 +139,7 @@ export const deleteUser = createAsyncThunk(
           Authorization: `Bearer ${token}`,
         },
       } : {};
-      
+
       await axios.delete(`${API_URL}/${id}`, config);
       return id; // return deleted user's _id
     } catch (error) {
@@ -154,10 +154,10 @@ const userSlice = createSlice({
     // Current logged-in user info
     userInfo: JSON.parse(localStorage.getItem("userInfo")) || null,
     token: localStorage.getItem("authToken") || null,
-    
+
     // All users list (for admin/management purposes)
     users: [],
-    
+
     // Loading and error states
     loading: false,
     error: null,
@@ -171,12 +171,12 @@ const userSlice = createSlice({
       localStorage.removeItem("authToken");
       localStorage.removeItem("userInfo");
     },
-    
+
     // Clear error
     clearError: (state) => {
       state.error = null;
     },
-    
+
     // Manual user list management actions
     updateUserInList: (state, action) => {
       const updatedUser = action.payload;
@@ -185,14 +185,14 @@ const userSlice = createSlice({
         state.users[index] = updatedUser;
       }
     },
-    
+
     addUserToList: (state, action) => {
       const existingUser = state.users.find(user => user._id === action.payload._id);
       if (!existingUser) {
         state.users.push(action.payload);
       }
     },
-    
+
     removeUserFromList: (state, action) => {
       state.users = state.users.filter((user) => user._id !== action.payload);
     },
@@ -287,13 +287,13 @@ const userSlice = createSlice({
       })
       .addCase(updateUser.fulfilled, (state, action) => {
         state.loading = false;
-        
+
         // Update userInfo if it's the current user
         if (state.userInfo && state.userInfo._id === action.payload._id) {
           state.userInfo = action.payload;
           localStorage.setItem("userInfo", JSON.stringify(action.payload));
         }
-        
+
         // Update in users list
         const idx = state.users.findIndex((u) => u._id === action.payload._id);
         if (idx !== -1) {
@@ -313,7 +313,7 @@ const userSlice = createSlice({
       .addCase(deleteUser.fulfilled, (state, action) => {
         state.loading = false;
         state.users = state.users.filter((user) => user._id !== action.payload);
-        
+
         // If user deleted themselves, logout
         if (state.userInfo && state.userInfo._id === action.payload) {
           state.userInfo = null;
@@ -329,12 +329,12 @@ const userSlice = createSlice({
   },
 });
 
-export const { 
-  logout, 
-  clearError, 
-  updateUserInList, 
-  addUserToList, 
-  removeUserFromList 
+export const {
+  logout,
+  clearError,
+  updateUserInList,
+  addUserToList,
+  removeUserFromList
 } = userSlice.actions;
 
 // Export fetchAllUsers as fetchUsers for backward compatibility

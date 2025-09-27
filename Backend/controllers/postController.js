@@ -4,21 +4,14 @@ const { Post } = require('../models/Post.js');
 // Create a new post
 const createPost = async (req, res) => {
   try {
-    console.log('🎯 CREATE POST START');
-    console.log('📝 Request body:', req.body);
-    console.log('📁 Request file:', req.file);
-    console.log('👤 Request user:', req.user);
-
     const { content } = req.body;
     const userId = req.user._id;
 
     if (!userId) {
-      console.log('❌ No user ID found');
       return res.status(401).json({ error: 'User authentication failed' });
     }
 
     if (!content || content.trim() === '') {
-      console.log('❌ No content provided');
       return res.status(400).json({ error: 'Post content is required' });
     }
 
@@ -27,14 +20,11 @@ const createPost = async (req, res) => {
     if (req.file) {
       if (cloudinary && req.file.path) {
         imageUrl = req.file.path;
-        console.log('☁️ Using Cloudinary URL:', imageUrl);
       } else {
         imageUrl = `/uploads/posts/${req.file.filename}`;
-        console.log('💾 Using local URL:', imageUrl);
       }
     }
 
-    console.log('💾 Creating post object...');
     const post = new Post({
       userId,
       content: content.trim(),
@@ -43,22 +33,13 @@ const createPost = async (req, res) => {
       comments: []
     });
 
-    console.log('💾 Saving to database...');
     await post.save();
-    console.log('✅ Post saved successfully');
 
-    console.log('👤 Populating user data...');
     await post.populate('userId', 'name email profilePic');
-    console.log('✅ User data populated');
 
     res.status(201).json(post);
 
   } catch (error) {
-    console.error('❌ CREATE POST ERROR:');
-    console.error('Message:', error.message);
-    console.error('Stack:', error.stack);
-
-    // ✅ FIXED: Send proper JSON error (not HTML)
     const errorMessage = error.message || 'Failed to create post';
     const errorResponse = {
       success: false,
@@ -66,28 +47,21 @@ const createPost = async (req, res) => {
       error: errorMessage
     };
 
-    console.log('📤 Sending error response:', errorResponse);
     res.status(500).json(errorResponse);
   }
 };
 
-
-
-// ✅ FIXED: Update all populate calls
 const getAllPosts = async (_req, res) => {
   try {
     const posts = await Post.find({})
       .sort({ createdAt: -1 })
-      .populate({ path: 'userId', select: 'name email profilePic' })  // ✅ FIXED
-      .populate({ path: 'comments.userId', select: 'name email profilePic' }); // ✅ FIXED
+      .populate({ path: 'userId', select: 'name email profilePic' })
+      .populate({ path: 'comments.userId', select: 'name email profilePic' });
     return res.json(posts);
   } catch (error) {
-    console.error('Get posts error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };
-
-
 
 const toggleLike = async (req, res) => {
   try {
@@ -116,8 +90,6 @@ const toggleLike = async (req, res) => {
   }
 };
 
-
-
 const addComment = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -142,8 +114,6 @@ const addComment = async (req, res) => {
     return res.status(500).json({ error: 'Server error' });
   }
 };
-
-
 
 const deleteComment = async (req, res) => {
   try {
@@ -214,7 +184,6 @@ const editComment = async (req, res) => {
   }
 };
 
-// ✅ FIXED: Delete post
 const deletePost = async (req, res) => {
   try {
     const { postId } = req.params;
@@ -237,7 +206,6 @@ const deletePost = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete post error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 };

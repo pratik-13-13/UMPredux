@@ -7,7 +7,9 @@ import {
   IoChevronBack,
   IoChevronForward,
   IoEye,
-  IoTrash
+  IoTrash,
+  IoPlayOutline,
+  IoPauseOutline
 } from "react-icons/io5";
 
 const StoryViewer = () => {
@@ -27,9 +29,15 @@ const StoryViewer = () => {
   const [showViewers, setShowViewers] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [toast, setToast] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [slideDirection, setSlideDirection] = useState('');
 
   // ✅ ADDED: Track viewed stories to prevent multiple API calls
   const viewedStories = useRef(new Set());
+  const progressInterval = useRef(null);
+  const storyContainer = useRef(null);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   // ✅ FETCH: Stories on component mount to ensure fresh data
   useEffect(() => {
@@ -57,22 +65,39 @@ const StoryViewer = () => {
   const currentUserStories = userStories[currentUserIndex];
   const currentStory = currentUserStories?.stories[currentStoryIndex];
 
-  // Auto-progress story
+  // ✅ ENHANCED: Smooth Instagram-like progress animation
   useEffect(() => {
-    if (isPaused || !currentStory) return;
+    if (isPaused || !currentStory || isTransitioning) return;
 
-    const timer = setInterval(() => {
+    // Clear any existing interval
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+    }
+
+    // Reset progress for new story
+    setProgress(0);
+
+    // Smooth progress animation (5 seconds per story like Instagram)
+    const duration = 5000; // 5 seconds
+    const increment = 100 / (duration / 50); // Update every 50ms
+
+    progressInterval.current = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
+          clearInterval(progressInterval.current);
           nextStory();
-          return 0;
+          return 100;
         }
-        return prev + 2;
+        return prev + increment;
       });
-    }, 100);
+    }, 50);
 
-    return () => clearInterval(timer);
-  }, [currentStoryIndex, currentUserIndex, isPaused, currentStory]);
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+      }
+    };
+  }, [currentStoryIndex, currentUserIndex, isPaused, currentStory, isTransitioning]);
 
   // ✅ FIXED: Track story view when story changes - PREVENT MULTIPLE CALLS
   useEffect(() => {
@@ -120,45 +145,130 @@ const StoryViewer = () => {
     }
   };
 
+  // ✅ ENHANCED: Smooth story transitions with animations
   const nextStory = () => {
-    const isOwnStory = currentUserStories._id._id === userInfo?._id;
+    if (isTransitioning) return;
     
-    if (currentStoryIndex < currentUserStories.stories.length - 1) {
-      setCurrentStoryIndex(prev => prev + 1);
-      setProgress(0);
-    } else {
-      if (isOwnStory) {
-        navigate('/feed');
+    setIsTransitioning(true);
+    setSlideDirection('slide-left');
+    
+    setTimeout(() => {
+      const isOwnStory = currentUserStories._id._id === userInfo?._id;
+      
+      if (currentStoryIndex < currentUserStories.stories.length - 1) {
+        setCurrentStoryIndex(prev => prev + 1);
+        setProgress(0);
       } else {
-        nextUser();
+        if (isOwnStory) {
+          navigate('/feed');
+          return;
+        } else {
+          nextUser();
+          return;
+        }
       }
-    }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSlideDirection('');
+      }, 300);
+    }, 150);
   };
 
   const prevStory = () => {
-    if (currentStoryIndex > 0) {
-      setCurrentStoryIndex(prev => prev - 1);
-      setProgress(0);
-    } else {
-      prevUser();
-    }
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSlideDirection('slide-right');
+    
+    setTimeout(() => {
+      if (currentStoryIndex > 0) {
+        setCurrentStoryIndex(prev => prev - 1);
+        setProgress(0);
+      } else {
+        prevUser();
+        return;
+      }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSlideDirection('');
+      }, 300);
+    }, 150);
   };
 
   const nextUser = () => {
-    if (currentUserIndex < userStories.length - 1) {
-      setCurrentUserIndex(prev => prev + 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
-    } else {
-      navigate('/feed');
-    }
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSlideDirection('slide-left');
+    
+    setTimeout(() => {
+      if (currentUserIndex < userStories.length - 1) {
+        setCurrentUserIndex(prev => prev + 1);
+        setCurrentStoryIndex(0);
+        setProgress(0);
+      } else {
+        navigate('/feed');
+        return;
+      }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSlideDirection('');
+      }, 300);
+    }, 150);
   };
 
   const prevUser = () => {
-    if (currentUserIndex > 0) {
-      setCurrentUserIndex(prev => prev - 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSlideDirection('slide-right');
+    
+    setTimeout(() => {
+      if (currentUserIndex > 0) {
+        setCurrentUserIndex(prev => prev - 1);
+        setCurrentStoryIndex(0);
+        setProgress(0);
+      }
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+        setSlideDirection('');
+      }, 300);
+    }, 150);
+  };
+
+  // ✅ NEW: Touch/Swipe gesture handlers
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    setIsPaused(true);
+  };
+
+  const handleTouchMove = (e) => {
+    // Prevent scrolling while swiping
+    e.preventDefault();
+  };
+
+  const handleTouchEnd = (e) => {
+    setIsPaused(false);
+    
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaX = touchEndX - touchStartX.current;
+    const deltaY = touchEndY - touchStartY.current;
+    
+    // Check if it's a horizontal swipe (not vertical scroll)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX > 0) {
+        // Swipe right - previous story/user
+        prevStory();
+      } else {
+        // Swipe left - next story/user
+        nextStory();
+      }
     }
   };
 
@@ -197,8 +307,49 @@ const StoryViewer = () => {
 
 
   return (
-    <div className="h-screen bg-black relative">
-      {/* Progress Bars */}
+    <>
+      {/* ✅ Instagram-like animations styles */}
+      <style jsx>{`
+        @keyframes slideInLeft {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideInRight {
+          from { transform: translateX(-100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutLeft {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(-100%); opacity: 0; }
+        }
+        
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .story-enter {
+          animation: slideInLeft 0.3s ease-out;
+        }
+        
+        .story-exit {
+          animation: slideOutLeft 0.3s ease-out;
+        }
+        
+        .progress-bar {
+          animation: progressFill 5s linear;
+        }
+        
+        @keyframes progressFill {
+          from { width: 0%; }
+          to { width: 100%; }
+        }
+      `}</style>
+      
+      <div className="h-screen bg-black relative overflow-hidden">
+      {/* ✅ ENHANCED: Instagram-style Progress Bars with smooth animations */}
       <div className="absolute top-0 left-0 right-0 z-20 flex space-x-1 p-2">
         {currentUserStories.stories.map((_, index) => (
           <div
@@ -206,7 +357,9 @@ const StoryViewer = () => {
             className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
           >
             <div
-              className="h-full bg-white transition-all duration-100"
+              className={`h-full bg-white rounded-full transition-all ${
+                index === currentStoryIndex ? 'duration-75 ease-linear' : 'duration-300 ease-out'
+              }`}
               style={{
                 width: `${index < currentStoryIndex
                     ? 100
@@ -214,36 +367,66 @@ const StoryViewer = () => {
                       ? progress
                       : 0
                   }%`,
+                transform: index === currentStoryIndex && progress > 0 ? 'scaleX(1)' : 'scaleX(1)',
+                transformOrigin: 'left'
               }}
             />
           </div>
         ))}
       </div>
 
-      {/* Header */}
-      <div className="absolute top-4 left-0 right-0 z-20 mt-6">
+      {/* ✅ ENHANCED: Header with smooth transitions */}
+      <div className={`absolute top-4 left-0 right-0 z-20 mt-6 transition-all duration-300 ${
+        isTransitioning ? 'opacity-0 -translate-y-2' : 'opacity-100 translate-y-0'
+      }`}>
         <div className="flex items-center justify-between px-4">
           <div className="flex items-center space-x-3">
-            <div className={`w-8 h-8 bg-gradient-to-r ${userAvatar.color} rounded-full flex items-center justify-center`}>
-              <span className="text-white font-semibold text-xs">
-                {userAvatar.initials}
-              </span>
+            {/* Profile Picture with Instagram-style ring */}
+            <div className="relative">
+              <div className="w-8 h-8 bg-gradient-to-tr from-purple-500 via-pink-500 to-red-500 rounded-full p-0.5">
+                <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
+                  {currentUserStories._id?.profilePic ? (
+                    <img 
+                      src={currentUserStories._id.profilePic} 
+                      alt={currentUserStories._id.name}
+                      className="w-6 h-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className={`w-6 h-6 bg-gradient-to-r ${userAvatar.color} rounded-full flex items-center justify-center`}>
+                      <span className="text-white font-semibold text-xs">
+                        {userAvatar.initials}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+            
             <div>
-              <span className="text-white font-semibold text-sm">
+              <span className="text-white font-semibold text-sm drop-shadow-lg">
                 {currentUserStories._id.name}
               </span>
-              <div className="text-white/70 text-xs">
-                {new Date(currentStory.createdAt).toLocaleString()}
+              <div className="text-white/70 text-xs drop-shadow-lg">
+                {new Date(currentStory.createdAt).toLocaleString([], {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </div>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Pause/Play indicator */}
+            {isPaused && (
+              <div className="p-1 bg-black/30 rounded-full">
+                <IoPauseOutline size={16} className="text-white" />
+              </div>
+            )}
+            
             {currentUserStories._id._id === userInfo?._id && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="p-2 bg-red-500/80 rounded-full text-white hover:bg-red-600/80 transition-colors"
+                className="p-2 bg-red-500/80 rounded-full text-white hover:bg-red-600/80 transition-all duration-200 hover:scale-110"
               >
                 <IoTrash size={18} />
               </button>
@@ -251,7 +434,7 @@ const StoryViewer = () => {
             
             <button
               onClick={() => navigate('/feed')}
-              className="text-white p-2"
+              className="text-white p-2 hover:bg-white/10 rounded-full transition-all duration-200"
             >
               <IoClose size={24} />
             </button>
@@ -259,43 +442,82 @@ const StoryViewer = () => {
         </div>
       </div>
 
-      {/* Story Content */}
+      {/* ✅ ENHANCED: Story Content with smooth transitions and gestures */}
       <div
-        className="h-full relative cursor-pointer"
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
+        ref={storyContainer}
+        className={`h-full relative cursor-pointer transition-transform duration-300 ease-out ${
+          slideDirection === 'slide-left' ? '-translate-x-full' : 
+          slideDirection === 'slide-right' ? 'translate-x-full' : 'translate-x-0'
+        }`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         onMouseDown={() => setIsPaused(true)}
         onMouseUp={() => setIsPaused(false)}
+        onMouseLeave={() => setIsPaused(false)}
       >
-        <img
-          src={currentStory.image}
-          alt="Story"
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            console.error('Image failed to load:', currentStory.image);
-            e.target.style.display = 'none';
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'w-full h-full bg-gray-900 flex items-center justify-center text-white';
-            errorDiv.innerHTML = '<p>Image failed to load</p>';
-            e.target.parentNode.appendChild(errorDiv);
-          }}
-          onLoad={() => {
-          }}
-        />
+        {/* Story Image with smooth loading */}
+        <div className="relative w-full h-full bg-gray-900">
+          <img
+            src={currentStory.image}
+            alt="Story"
+            className={`w-full h-full object-cover transition-opacity duration-500 ${
+              isTransitioning ? 'opacity-0' : 'opacity-100'
+            }`}
+            onError={(e) => {
+              console.error('Image failed to load:', currentStory.image);
+              e.target.style.display = 'none';
+              const errorDiv = document.createElement('div');
+              errorDiv.className = 'w-full h-full bg-gray-900 flex items-center justify-center text-white';
+              errorDiv.innerHTML = '<p>Image failed to load</p>';
+              e.target.parentNode.appendChild(errorDiv);
+            }}
+          />
+          
+          {/* Loading overlay during transitions */}
+          {isTransitioning && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+        </div>
 
+        {/* Story Text Content */}
         {currentStory.content && (
-          <div className="absolute bottom-32 left-4 right-4">
-            <p className="text-white text-lg shadow-lg">
+          <div className={`absolute bottom-32 left-4 right-4 transition-all duration-300 ${
+            isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+          }`}>
+            <p className="text-white text-lg shadow-lg font-medium">
               {currentStory.content}
             </p>
           </div>
         )}
 
-        {/* Navigation Areas */}
+        {/* ✅ ENHANCED: Navigation Areas with visual feedback */}
         <div className="absolute inset-0 flex">
-          <div className="w-1/3 h-full" onClick={prevStory} />
-          <div className="w-1/3 h-full" />
-          <div className="w-1/3 h-full" onClick={nextStory} />
+          <div 
+            className="w-1/3 h-full flex items-center justify-start pl-4 group" 
+            onClick={prevStory}
+          >
+            <IoChevronBack 
+              size={24} 
+              className="text-white/0 group-active:text-white/50 transition-colors duration-150" 
+            />
+          </div>
+          <div className="w-1/3 h-full flex items-center justify-center">
+            {isPaused && (
+              <IoPlayOutline size={48} className="text-white/70 animate-pulse" />
+            )}
+          </div>
+          <div 
+            className="w-1/3 h-full flex items-center justify-end pr-4 group" 
+            onClick={nextStory}
+          >
+            <IoChevronForward 
+              size={24} 
+              className="text-white/0 group-active:text-white/50 transition-colors duration-150" 
+            />
+          </div>
         </div>
       </div>
 
@@ -394,6 +616,7 @@ const StoryViewer = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

@@ -13,7 +13,6 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
-      console.log('❌ AUTH FAILED: Invalid token', err.message);
       return res.status(403).json({ error: 'Invalid token' });
     }
     
@@ -26,7 +25,6 @@ const authenticateToken = (req, res, next) => {
       email: decoded.email
     };
     
-    console.log('✅ AUTH SUCCESS: User', req.user._id);
     next();
   });
 };

@@ -59,6 +59,15 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend server is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // user routes
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
@@ -69,8 +78,11 @@ app.use("/api/chat",chatRoutes)
 
 // Start server (CHANGED: Use server instead of app for WebSocket)
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(` Server running on port ${PORT}`);
-  console.log(` WebSocket support enabled`);
+const HOST = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
+
+server.listen(PORT, HOST, () => {
+  console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+  console.log(`🌐 Local network access: http://192.168.1.7:${PORT}`);
+  console.log(`📡 WebSocket support enabled`);
   console.log(`📱 Ready for real-time notifications`);
 });

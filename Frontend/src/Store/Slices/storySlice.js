@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { API_CONFIG } from "../../config/api.js";
 
-const API_URL = "https://api-umpredux.onrender.com/api/stories";
-//const API_URL = "http://192.168.1.154:5000/api/stories";
+const API_URL = API_CONFIG.STORIES;
 
 // Fetch all stories grouped by user
 export const fetchStoriesByUser = createAsyncThunk(

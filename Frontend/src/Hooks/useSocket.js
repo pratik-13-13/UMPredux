@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import io from 'socket.io-client';
 import { getFollowRequests } from '../Store/Slices/followSlice.js';
 import { getUnreadCount } from '../Store/Slices/chatSlice.js';
+import { API_CONFIG } from '../config/api.js';
 
 let socket = null;
 
@@ -14,9 +15,7 @@ const useSocket = () => {
   useEffect(() => {
     if (userInfo?._id && !socket) {
       // Connect to WebSocket server
-      const serverURL = process.env.NODE_ENV === 'production' 
-        ? 'https://api-umpredux.onrender.com' 
-        : 'http://192.168.1.154:5000'; // ✅ FIXED: Use your local server URL
+      const serverURL = API_CONFIG.SOCKET_URL;
         
       socket = io(serverURL, {
         transports: ['websocket', 'polling'],

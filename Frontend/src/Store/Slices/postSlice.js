@@ -1,8 +1,9 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = "https://api-umpredux.onrender.com/api/posts";
-//const API_URL = "http://192.168.1.154:5000/api/posts";
+import { API_CONFIG } from "../../config/api.js";
+
+const API_URL = API_CONFIG.POSTS;
 
 export const fetchPosts = createAsyncThunk(
   "posts/fetchPosts",
@@ -22,7 +23,6 @@ export const createPost = createAsyncThunk(
     try {
       const token = getState().user.token || getState().user.userInfo?.token;
 
-      console.log('🚀 Creating post with token:', token ? 'Present' : 'Missing');
 
       if (!token) {
         throw new Error('Please login to create posts');
@@ -33,7 +33,6 @@ export const createPost = createAsyncThunk(
         formData.append('content', content);
         formData.append('image', image);
 
-        console.log('📤 Sending FormData with image');
 
         const response = await fetch(`${API_URL}`, {
           method: 'POST',
@@ -46,13 +45,11 @@ export const createPost = createAsyncThunk(
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.log('❌ Response error:', errorText);
           throw new Error(errorText || 'Failed to create post');
         }
 
         return await response.json();
       } else {
-        console.log('📤 Sending JSON without image');
         
         const response = await fetch(`${API_URL}`, {
           method: 'POST',
@@ -68,14 +65,12 @@ export const createPost = createAsyncThunk(
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.log('❌ Response error:', errorText);
           throw new Error(errorText || 'Failed to create post');
         }
 
         return await response.json();
       }
     } catch (error) {
-      console.log('❌ Post creation error:', error.message);
       return rejectWithValue(error.message);
     }
   }
